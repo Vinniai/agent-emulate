@@ -23,21 +23,24 @@ export interface EmuTheme {
   radius: string;
 }
 
-// The original terminal-green look. Used for the root/unknown service and any
-// non-login page, so default behaviour is unchanged.
+// The agent-emulate control-plane look — ElevenLabs UI's neutral monochrome
+// (https://github.com/elevenlabs/ui), dark. Used for the root/unknown service
+// and any non-login page. `themeOverrideCss` returns "" for this theme, so the
+// control plane renders straight from the base stylesheet in ui.ts; these
+// tokens are kept in sync for any consumer that reads the theme directly.
 export const DEFAULT_THEME: EmuTheme = {
   slug: "default",
   name: "Emulator",
   scheme: "dark",
-  bg: "#000000",
-  surface: "#000000",
-  border: "#0a3300",
-  text: "#33ff00",
-  muted: "#1a8c00",
-  accent: "#33ff00",
-  accentText: "#000000",
+  bg: "oklch(0.145 0 0)",
+  surface: "oklch(0.205 0 0)",
+  border: "oklch(1 0 0 / 10%)",
+  text: "oklch(0.985 0 0)",
+  muted: "oklch(0.708 0 0)",
+  accent: "oklch(0.922 0 0)",
+  accentText: "oklch(0.205 0 0)",
   font: "'Geist',-apple-system,BlinkMacSystemFont,sans-serif",
-  radius: "8px",
+  radius: "0.625rem",
 };
 
 export const THEMES: Record<string, EmuTheme> = {
