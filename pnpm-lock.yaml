@@ -185,7 +185,7 @@ importers:
       '@hono/node-server':
         specifier: ^1
         version: 1.19.13(hono@4.12.12)
-      emulate:
+      agent-emulate:
         specifier: workspace:*
         version: link:../../packages/emulate
       hono:

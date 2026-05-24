@@ -70,13 +70,13 @@ The advertised base URL (used in OAuth redirects, webhook URLs, etc.) can be ove
 ## Programmatic API
 
 ```bash
-npm install emulate
+npm install agent-emulate
 ```
 
 Each call to `createEmulator` starts a single service:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const github = await createEmulator({ service: 'github', port: 4001 })
 const vercel = await createEmulator({ service: 'vercel', port: 4002 })
@@ -108,7 +108,7 @@ await vercel.close()
 ## Vitest / Jest Setup
 
 ```typescript
-import { createEmulator, type Emulator } from 'emulate'
+import { createEmulator, type Emulator } from 'agent-emulate'
 
 let github: Emulator
 let vercel: Emulator

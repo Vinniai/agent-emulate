@@ -64,7 +64,7 @@
     "@emulators/zendesk": "workspace:*",
     "@emulators/zoho-crm": "workspace:*",
     "@hono/node-server": "^1",
-    "emulate": "workspace:*",
+    "agent-emulate": "workspace:*",
     "hono": "^4",
     "picocolors": "^1.1.1",
     "yaml": "^2"

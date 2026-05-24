@@ -7,8 +7,8 @@
 // private adapters (workos/nango/simpro/uptick) are registered here by merging
 // our entries on top of the built-in registry. Adding/removing a private
 // adapter only touches this file.
-import { SERVICE_REGISTRY as BUILTIN_REGISTRY, SERVICE_NAMES as BUILTIN_NAMES } from "emulate";
-import type { ServiceEntry, ServiceName as BuiltinServiceName } from "emulate";
+import { SERVICE_REGISTRY as BUILTIN_REGISTRY, SERVICE_NAMES as BUILTIN_NAMES } from "agent-emulate";
+import type { ServiceEntry, ServiceName as BuiltinServiceName } from "agent-emulate";
 // Generated: every Nango-proxied provider, also available standalone direct.
 import { DIRECT_REGISTRY, DIRECT_NAMES } from "./direct-emulators.js";
 

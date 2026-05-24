@@ -23,7 +23,7 @@ npx agent-emulate --service stripe
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const stripe = await createEmulator({ service: 'stripe', port: 4000 })
 // stripe.url === 'http://localhost:4000'

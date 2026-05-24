@@ -4,7 +4,7 @@
 // standalone emulator that serves the provider's OWN native REST surface
 // behind its own bearer token — no Nango connection/records/proxy layer.
 // Nango stays one option; "go direct to source" is always the other.
-import type { ServiceEntry } from "emulate";
+import type { ServiceEntry } from "agent-emulate";
 
 export const DIRECT_REGISTRY: Record<string, ServiceEntry> = {
   xero: {

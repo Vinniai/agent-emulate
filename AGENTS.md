@@ -4,7 +4,7 @@
 
 Use `pnpm` for all package management commands (not npm or yarn).
 
-Exception: End-user install instructions should use `npm` (e.g. `npx agent-emulate`, `npm install emulate`) since npm is universal.
+Exception: End-user install instructions should use `npm` (e.g. `npx agent-emulate`, `npm install agent-emulate`) since npm is universal.
 
 ## CLI Invocation
 

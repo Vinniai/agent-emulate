@@ -21,7 +21,7 @@ npx agent-emulate --service vercel
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const vercel = await createEmulator({ service: 'vercel', port: 4000 })
 // vercel.url === 'http://localhost:4000'

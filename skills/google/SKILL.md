@@ -21,7 +21,7 @@ npx agent-emulate --service google
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const google = await createEmulator({ service: 'google', port: 4002 })
 // google.url === 'http://localhost:4002'

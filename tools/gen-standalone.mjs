@@ -634,7 +634,7 @@ function genServerRegistry(p1, p2) {
   lines.push(`// standalone emulator that serves the provider's OWN native REST surface`);
   lines.push(`// behind its own bearer token — no Nango connection/records/proxy layer.`);
   lines.push(`// Nango stays one option; "go direct to source" is always the other.`);
-  lines.push(`import type { ServiceEntry } from "emulate";`);
+  lines.push(`import type { ServiceEntry } from "agent-emulate";`);
   lines.push(``);
   const entries = [];
 

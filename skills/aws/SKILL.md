@@ -21,7 +21,7 @@ npx agent-emulate --service aws
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const aws = await createEmulator({ service: 'aws', port: 4006 })
 // aws.url === 'http://localhost:4006'

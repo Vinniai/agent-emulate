@@ -21,7 +21,7 @@ npx agent-emulate --service apple
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const apple = await createEmulator({ service: 'apple', port: 4004 })
 // apple.url === 'http://localhost:4004'

@@ -55,7 +55,7 @@ export function HeroTerminal({ pixelFont }: { pixelFont: string }) {
       <pre className="overflow-x-auto p-5 text-[13px] leading-relaxed text-neutral-400 font-mono">
         <code>
           <span className="text-neutral-500">$</span>{" "}
-          <span className="text-neutral-200">npx emulate{portless ? " --portless" : ""}</span>
+          <span className="text-neutral-200">npx agent-emulate{portless ? " --portless" : ""}</span>
           {"\n\n"}
           <span className={`${pixelFont} text-neutral-200`}>emulate</span>
           {" v0.4.1\n\n"}

@@ -21,7 +21,7 @@ npx agent-emulate --service microsoft
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const microsoft = await createEmulator({ service: 'microsoft', port: 4005 })
 // microsoft.url === 'http://localhost:4005'

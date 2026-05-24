@@ -21,7 +21,7 @@ npx agent-emulate --service slack
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const slack = await createEmulator({ service: 'slack', port: 4003 })
 // slack.url === 'http://localhost:4003'

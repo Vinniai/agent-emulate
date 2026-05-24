@@ -11,7 +11,7 @@ const defaultPort = process.env.EMULATE_PORT ?? process.env.PORT ?? "4000";
 const program = new Command();
 
 program
-  .name("emulate")
+  .name("agent-emulate")
   .description("Local drop-in replacement services for CI and no-network sandboxes")
   .version(pkg.version);
 

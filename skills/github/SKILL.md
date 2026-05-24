@@ -21,7 +21,7 @@ npx agent-emulate --service github
 Or programmatically:
 
 ```typescript
-import { createEmulator } from 'emulate'
+import { createEmulator } from 'agent-emulate'
 
 const github = await createEmulator({ service: 'github', port: 4001 })
 // github.url === 'http://localhost:4001'

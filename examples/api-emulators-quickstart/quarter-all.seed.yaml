@@ -9,7 +9,7 @@
 # Apply with either:
 #   1) Append the two blocks to your emulate.config.yaml (replace any existing
 #      simpro: / uptick: sections), or
-#   2) Pass this file directly:  npx emulate start --seed quarter-all.seed.yaml
+#   2) Pass this file directly:  npx agent-emulate start --seed quarter-all.seed.yaml
 #
 # Pairs with `src/quarter-all.ts` (the wrapper) and
 # `scenarios/quarter-all10-90min.yaml` (the 10-Nango-stream compressed run).
