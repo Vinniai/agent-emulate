@@ -1,0 +1,74 @@
+# emulate-sim scenario — streams live activity into a running emulator.
+#
+#   pnpm --filter @emulators/simulator build
+#   node packages/@emulators/simulator/dist/cli.js run \
+#     packages/@emulators/simulator/examples/inbox-stream.yaml \
+#     --base http://nango.localhost:1355
+#
+# connectionId / providerConfigKey must match Nango connections the emulator is
+# already seeded with. `base` may be the portless host above or
+# http://localhost:4000/nango. Ctrl-C stops gracefully.
+
+base: http://nango.localhost:1355
+durationSec: 600
+
+streams:
+  # Gmail: new INBOX messages drip in, each firing a "sync" webhook (added:1).
+  - name: gmail-inbox
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 12
+    jitter: 0.4
+
+  # Microsoft Graph mail — same cadence, Graph-shaped records.
+  - name: graph-inbox
+    kind: sync
+    provider: graph-mail
+    connectionId: ms-acme
+    providerConfigKey: outlook
+    model: messages
+    ratePerMinute: 6
+    jitter: 0.4
+
+  # Teams channel messages.
+  - name: teams-chatter
+    kind: sync
+    provider: teams
+    connectionId: teams-acme
+    providerConfigKey: microsoft-teams
+    model: messages
+    ratePerMinute: 10
+    jitter: 0.5
+
+  # Google Drive — files landing in a shared drive.
+  - name: drive-uploads
+    kind: sync
+    provider: drive
+    connectionId: dr-acme
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 4
+    jitter: 0.3
+
+  # Google Calendar — new confirmed events.
+  - name: calendar-events
+    kind: sync
+    provider: calendar
+    connectionId: cal-acme
+    providerConfigKey: google-calendar
+    model: events
+    ratePerMinute: 3
+    jitter: 0.5
+
+  # WhatsApp inbound — provider webhook wrapped + relayed as a "forward".
+  - name: whatsapp-inbound
+    kind: forward
+    provider: whatsapp
+    connectionId: wa-acme
+    providerConfigKey: whatsapp
+    environmentUuid: env-1
+    ratePerMinute: 8
+    jitter: 0.6

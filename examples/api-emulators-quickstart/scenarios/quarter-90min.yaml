@@ -1,0 +1,32 @@
+# 90 simulated days delivered over 90 wall-minutes.
+#
+# Two streams (Gmail + Drive) tick every 15 wall-seconds (4/min) for 360 ticks,
+# so the run finishes at exactly 90 minutes. Each record is stamped by the
+# *injected* clock the driver script accelerates 1440x, so the data's own
+# timestamps span 90 days — the exact "compress N days into M minutes" demo.
+#
+# Driver:
+#   tsx src/quarter-compressed.ts \
+#     --scenario scenarios/quarter-90min.yaml \
+#     --base http://localhost:4004 \
+#     --wall-minutes 90 --sim-days 90
+streams:
+  - name: gmail-quarter
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme-90m
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+
+  - name: drive-quarter
+    kind: sync
+    provider: drive
+    connectionId: dr-acme-90m
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360

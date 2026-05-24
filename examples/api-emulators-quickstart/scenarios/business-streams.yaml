@@ -1,0 +1,61 @@
+# Business-system activity — Xero invoices, Jira issues, Salesforce
+# opportunities, GitHub PRs and Slack messages streamed into a running server.
+#
+# The whole point of Phase 2.1: none of these providers required a simulator
+# source edit. They are scenario-declared streams resolved purely through the
+# generator registry (`generatorProviders()`), exactly like the built-in inbox
+# providers. Run against a live server with:
+#
+#   emulate-sim run scenarios/business-streams.yaml --base http://nango.localhost:1355
+#
+# Each stream is capped so the run is finite and assertion-friendly.
+streams:
+  - name: xero-invoices
+    kind: sync
+    provider: xero
+    connectionId: xero-acme
+    providerConfigKey: xero
+    model: invoices
+    ratePerMinute: 20
+    jitter: 0.3
+    maxCount: 6
+
+  - name: jira-issues
+    kind: sync
+    provider: jira
+    connectionId: jira-acme
+    providerConfigKey: jira
+    model: issues
+    ratePerMinute: 24
+    jitter: 0.3
+    maxCount: 7
+
+  - name: salesforce-opps
+    kind: sync
+    provider: salesforce
+    connectionId: sfdc-acme
+    providerConfigKey: salesforce
+    model: opportunities
+    ratePerMinute: 12
+    jitter: 0.4
+    maxCount: 4
+
+  - name: github-prs
+    kind: sync
+    provider: github
+    connectionId: gh-acme
+    providerConfigKey: github
+    model: pull_requests
+    ratePerMinute: 15
+    jitter: 0.3
+    maxCount: 5
+
+  - name: slack-messages
+    kind: sync
+    provider: slack
+    connectionId: slack-acme
+    providerConfigKey: slack
+    model: messages
+    ratePerMinute: 30
+    jitter: 0.4
+    maxCount: 8

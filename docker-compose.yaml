@@ -1,0 +1,17 @@
+services:
+  emulate:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    image: emulate-server:local
+    container_name: emulate-server
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      EMULATE_BASE_URL: "${EMULATE_BASE_URL:-http://localhost:4000}"
+      EMULATE_CONFIG_PATH: "/app/emulate.config.yaml"
+      EMULATE_ADMIN_TOKEN: "${EMULATE_ADMIN_TOKEN:-}"
+    volumes:
+      - ./emulate.config.yaml:/app/emulate.config.yaml:ro
+    restart: unless-stopped

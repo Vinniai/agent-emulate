@@ -1,0 +1,94 @@
+# 10 Nango-driven streams, 90 simulated days delivered over 90 wall-minutes.
+# Each stream: 4 ticks/min × 90 min = 360 records. Driven by
+# `src/quarter-compressed.ts` with --wall-minutes 90 --sim-days 90 (1440x clock).
+streams:
+  - name: gmail
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme-90m
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: drive
+    kind: sync
+    provider: drive
+    connectionId: dr-acme-90m
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: calendar
+    kind: sync
+    provider: calendar
+    connectionId: cal-acme-90m
+    providerConfigKey: google-calendar
+    model: events
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: teams
+    kind: sync
+    provider: teams
+    connectionId: teams-acme-90m
+    providerConfigKey: microsoft-teams
+    model: messages
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: graph-mail
+    kind: sync
+    provider: graph-mail
+    connectionId: outlook-acme-90m
+    providerConfigKey: outlook
+    model: messages
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: slack
+    kind: sync
+    provider: slack
+    connectionId: slack-acme-90m
+    providerConfigKey: slack
+    model: messages
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: jira
+    kind: sync
+    provider: jira
+    connectionId: jira-acme-90m
+    providerConfigKey: jira
+    model: issues
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: xero
+    kind: sync
+    provider: xero
+    connectionId: xero-acme-90m
+    providerConfigKey: xero
+    model: invoices
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: salesforce
+    kind: sync
+    provider: salesforce
+    connectionId: sfdc-acme-90m
+    providerConfigKey: salesforce
+    model: opportunities
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360
+  - name: github
+    kind: sync
+    provider: github
+    connectionId: gh-acme-90m
+    providerConfigKey: github
+    model: pull_requests
+    ratePerMinute: 4
+    jitter: 0
+    maxCount: 360

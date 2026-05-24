@@ -1,0 +1,29 @@
+# A different time frame: a slow drip that, under a virtual clock, spans a
+# whole quarter. Each tick is ~6 hours of *simulated* time, so maxCount 360
+# ≈ 90 simulated days of inbound — compressed to run instantly.
+#
+# ratePerMinute = 60000ms / 21,600,000ms (6h) ≈ 0.00277778
+#
+# Used by `realtime-stream.ts` Segment C to prove the streamed records'
+# own timestamps genuinely span ≥ a quarter (the simulator stamps each
+# record with the injected clock, so the time frame is configurable here).
+streams:
+  - name: gmail-quarter
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 0.00277778 # one every ~6 simulated hours
+    jitter: 0
+    maxCount: 360 # 360 × 6h ≈ 90 days
+
+  - name: drive-quarter
+    kind: sync
+    provider: drive
+    connectionId: dr-acme
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 0.00277778
+    jitter: 0
+    maxCount: 360

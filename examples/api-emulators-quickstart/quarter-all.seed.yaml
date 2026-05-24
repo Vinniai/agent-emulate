@@ -1,0 +1,134 @@
+# Reference seed overlay for `pnpm quarter-all`.
+#
+# Merge these two top-level blocks into the emulate config (`--seed` /
+# EMULATE_CONFIG_PATH) of your per-port server. They give `simpro-sim` and
+# `uptick-sim` the exact root rows their REMOTE crawl links to — without them
+# the SimPro crawl reports 27/29 shape gaps (master cost center + technician
+# refs don't resolve).
+#
+# Apply with either:
+#   1) Append the two blocks to your emulate.config.yaml (replace any existing
+#      simpro: / uptick: sections), or
+#   2) Pass this file directly:  npx emulate start --seed quarter-all.seed.yaml
+#
+# Pairs with `src/quarter-all.ts` (the wrapper) and
+# `scenarios/quarter-all10-90min.yaml` (the 10-Nango-stream compressed run).
+
+simpro:
+  oauth:
+    client_id: taskr_dev
+    client_secret: taskr_dev_secret
+  companies:
+    - id: 0
+      name: Taskr Test Co
+  tax_codes:
+    - id: 1
+      name: GST
+      rate: 10
+  statuses:
+    - id: 10
+      kind: job
+      name: In Progress
+    - id: 20
+      kind: quote
+      name: Quoted
+  master_cost_centers:
+    - id: 500
+      name: Service
+  staff:
+    - id: 7
+      given_name: Dana
+      family_name: Tech
+      email: dana@agent-emulate.dev
+  contractors:
+    - id: 90
+      company_name: Subbie Co
+      given_name: Sam
+      family_name: Sub
+  customers:
+    - id: 200
+      type: company
+      company_name: Acme Facilities Pty Ltd
+      email: ops@agent-emulate.dev
+      sites:
+        - id: 55
+          name: North Campus Building A
+    - id: 201
+      type: individual
+      given_name: Pat
+      family_name: Owner
+  jobs:
+    - id: 12345
+      type: Project
+      name: Baseline Job
+      customer_id: 200
+      site_id: 55
+      sections:
+        - id: 1
+          name: Mechanical
+          cost_centers:
+            - id: 800
+              name: Pipework
+              ex_tax: 4000
+  quotes:
+    - id: 9001
+      name: Baseline Quote
+      customer_id: 201
+      status_id: 20
+  invoices:
+    - id: 7001
+      job_id: 12345
+      type: ProgressInvoice
+      total_ex_tax: 4000
+      total_inc_tax: 4400
+  schedules:
+    - id: 301
+      job_id: 12345
+      technician_id: 7
+      date: "2026-02-19"
+      start_time: "09:00"
+      duration_minutes: 240
+  assets:
+    - id: 410
+      customer_id: 200
+      site_id: 55
+      name: Pump A1
+      asset_type: Pump
+  contacts:
+    - id: 600
+      type: Customer
+      customer_id: 200
+      given_name: Cara
+      family_name: Contact
+  stock_items:
+    - id: 700
+      name: Pipe 50mm
+      part_no: P-50
+  # Generic records for SimPro Swagger endpoints that are covered by the
+  # spec fallback before they get a bespoke typed handler. Keys are concrete
+  # API collection paths, including company and parent ids.
+  swagger_records:
+    /api/v1.0/companies/0/catalogGroups/:
+      - ID: 77
+        Name: Seeded catalog group
+        DisplayOrder: 2
+
+uptick:
+  asset_types:
+    - name: Sprinkler System
+      description: Wet/dry pipe sprinkler network
+    - name: Fire Extinguisher
+      description: Portable extinguisher (ABE/CO2)
+    - name: Fire Door
+      description: Rated fire/smoke door assembly
+    - name: Hydrant
+      description: Booster + feed hydrant
+  users:
+    - username: tess
+      email: tess@agent-emulate.dev
+      first_name: Tess
+      last_name: Tech
+    - username: ravi
+      email: ravi@agent-emulate.dev
+      first_name: Ravi
+      last_name: Singh

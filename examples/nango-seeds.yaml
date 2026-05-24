@@ -1,0 +1,1368 @@
+# examples/nango-seeds.yaml
+#
+# Seed library for popular Nango providers, drop-in for emulate.config.yaml.
+# Copy any `connections:` entries you need under your top-level `nango:` key.
+#
+# Each seed gives you:
+#   * a connection that `GET /connections/<id>` resolves
+#   * 1–2 representative models with 2–3 rows of realistic field shapes
+#     that round-trip through `GET /records?model=<Model>` with the
+#     `Connection-Id` + `Provider-Config-Key` headers
+#
+# Field shapes follow each provider's real API so you can swap the emulator
+# for production later without rewriting client code. Tokens, IDs, and dates
+# are synthetic.
+#
+# Run the emulator after editing your config:
+#
+#   npx emulate start
+#
+# Then exercise a seed:
+#
+#   curl -H "Connection-Id: salesforce-acme" \
+#        -H "Provider-Config-Key: salesforce" \
+#        "http://localhost:4030/records?model=Account"
+
+nango:
+  connections:
+    # ============================================================
+    # CRM
+    # ============================================================
+
+    - id: salesforce-acme
+      provider: salesforce
+      provider_config_key: salesforce
+      connection_config:
+        instance_url: https://acme.my.salesforce.com
+      metadata:
+        organizationId: org_acme
+      records:
+        # Salesforce SOQL responses wrap each row in an `attributes`
+        # envelope carrying the sobject `type` and the REST `url` for the row.
+        # Any client that hits /query?q=... sees this shape — including the
+        # official SDKs (jsforce, nforce, salesforce-node). Drop the envelope
+        # only when you fetch a single record via /sobjects/<Type>/<Id>.
+        Account:
+          - attributes:
+              type: Account
+              url: /services/data/v59.0/sobjects/Account/0011x00000ABCDEAA1
+            Id: 0011x00000ABCDEAA1
+            Name: Acme Corp
+            Industry: Technology
+            AnnualRevenue: 5400000
+            NumberOfEmployees: 42
+            BillingCountry: US
+            CreatedDate: "2025-01-12T09:14:00.000Z"
+          - attributes:
+              type: Account
+              url: /services/data/v59.0/sobjects/Account/0011x00000ABCDFAA2
+            Id: 0011x00000ABCDFAA2
+            Name: Globex Manufacturing
+            Industry: Manufacturing
+            AnnualRevenue: 18200000
+            NumberOfEmployees: 215
+            BillingCountry: US
+            CreatedDate: "2024-08-30T16:02:00.000Z"
+        Contact:
+          - attributes:
+              type: Contact
+              url: /services/data/v59.0/sobjects/Contact/0031x00000XYZ01AA1
+            Id: 0031x00000XYZ01AA1
+            FirstName: Lena
+            LastName: Park
+            Email: lena.park@agent-emulate.dev
+            AccountId: 0011x00000ABCDEAA1
+            Title: VP Engineering
+          - attributes:
+              type: Contact
+              url: /services/data/v59.0/sobjects/Contact/0031x00000XYZ02AA2
+            Id: 0031x00000XYZ02AA2
+            FirstName: Marco
+            LastName: Ruiz
+            Email: marco.ruiz@agent-emulate.dev
+            AccountId: 0011x00000ABCDFAA2
+            Title: Director of Operations
+        Opportunity:
+          - attributes:
+              type: Opportunity
+              url: /services/data/v59.0/sobjects/Opportunity/0061x00000OPP01AA1
+            Id: 0061x00000OPP01AA1
+            Name: "Acme — Q1 Platform Expansion"
+            AccountId: 0011x00000ABCDEAA1
+            Amount: 120000
+            StageName: Negotiation
+            CloseDate: "2026-03-31"
+            Probability: 70
+          - attributes:
+              type: Opportunity
+              url: /services/data/v59.0/sobjects/Opportunity/0061x00000OPP02AA2
+            Id: 0061x00000OPP02AA2
+            Name: "Globex — ERP Migration"
+            AccountId: 0011x00000ABCDFAA2
+            Amount: 480000
+            StageName: Proposal
+            CloseDate: "2026-06-15"
+            Probability: 40
+
+    - id: pipedrive-acme
+      provider: pipedrive
+      provider_config_key: pipedrive
+      connection_config:
+        api_domain: https://acme.pipedrive.com
+      metadata:
+        organizationId: org_acme
+      records:
+        Person:
+          # Pipedrive API uses `emails` / `phones` (plural) arrays of
+          # {value, primary, label} objects, plus owner_id and visible_to.
+          - id: 101
+            name: Priya Anand
+            emails: [{ value: priya@agent-emulate.dev, primary: true, label: work }]
+            phones: [{ value: "+1-555-0142", primary: true, label: work }]
+            org_id: 9001
+            owner_id: 1
+            visible_to: 1
+            add_time: "2025-09-14T10:12:00Z"
+            update_time: "2025-09-14T10:12:00Z"
+          - id: 102
+            name: Tomas Eriksen
+            emails: [{ value: tomas@agent-emulate.dev, primary: true, label: work }]
+            phones: [{ value: "+46-70-555-0188", primary: true, label: mobile }]
+            org_id: 9002
+            owner_id: 1
+            visible_to: 1
+            add_time: "2025-10-04T14:30:00Z"
+            update_time: "2025-10-04T14:30:00Z"
+        Deal:
+          - id: 5001
+            title: Onboarding subscription — Acme HQ
+            value: 24000
+            currency: USD
+            status: open
+            stage_id: 3
+            person_id: 101
+            org_id: 9001
+            add_time: "2025-11-01 09:00:00"
+          - id: 5002
+            title: Renewal — Globex North
+            value: 96000
+            currency: USD
+            status: open
+            stage_id: 4
+            person_id: 102
+            org_id: 9002
+            add_time: "2025-11-12 13:45:00"
+
+    - id: zoho-crm-acme
+      provider: zoho-crm
+      provider_config_key: zoho-crm
+      connection_config:
+        api_domain: https://www.zohoapis.com
+        portal: acme
+      metadata:
+        organizationId: org_acme
+      records:
+        # Zoho CRM uses PascalCase_With_Underscores for field API names.
+        # `id` is a stringified 19-digit number. Every record carries an
+        # `Owner` object (id + name) and timestamps in +HH:MM offset form.
+        Leads:
+          - id: "5429000001234567"
+            First_Name: Hannah
+            Last_Name: Cohen
+            Email: hannah@agent-emulate.dev
+            Lead_Source: Web Download
+            Lead_Status: Contacted
+            Company: Aurora Labs
+            Owner:
+              id: "5429000000200001"
+              name: Priya Anand
+              email: priya@agent-emulate.dev
+            Created_Time: "2025-10-22T11:00:00+00:00"
+            Modified_Time: "2025-11-04T09:00:00+00:00"
+          - id: "5429000001234568"
+            First_Name: Ravi
+            Last_Name: Patel
+            Email: ravi@agent-emulate.dev
+            Lead_Source: Trade Show
+            Lead_Status: Not Contacted
+            Company: Beacon Industrial
+            Owner:
+              id: "5429000000200001"
+              name: Priya Anand
+              email: priya@agent-emulate.dev
+            Created_Time: "2025-11-08T15:24:00+00:00"
+            Modified_Time: "2025-11-08T15:24:00+00:00"
+
+    # ============================================================
+    # Accounting / Finance
+    # ============================================================
+
+    - id: freshbooks-acme
+      provider: freshbooks
+      provider_config_key: freshbooks
+      connection_config:
+        account_id: ABCxyz123
+      metadata:
+        organizationId: org_acme
+      records:
+        Invoice:
+          - id: 7001
+            invoice_number: "INV-7001"
+            amount: { amount: "1450.00", code: USD }
+            outstanding: { amount: "0.00", code: USD }
+            status: 4
+            v3_status: paid
+            organization: Acme Corp
+            create_date: "2025-09-15"
+            due_date: "2025-10-15"
+          - id: 7002
+            invoice_number: "INV-7002"
+            amount: { amount: "3200.00", code: USD }
+            outstanding: { amount: "3200.00", code: USD }
+            status: 2
+            v3_status: sent
+            organization: Globex Manufacturing
+            create_date: "2025-11-01"
+            due_date: "2025-12-01"
+
+    - id: wave-acme
+      provider: wave-accounting
+      provider_config_key: wave-accounting
+      connection_config:
+        business_id: QnVzaW5lc3M6YWNtZS1kZW1v
+      metadata:
+        organizationId: org_acme
+      records:
+        Invoice:
+          - id: SW52b2ljZTphY21lLTAwMQ==
+            invoiceNumber: "WAV-2025-001"
+            status: SAVED
+            total: { value: "560.00", currency: { code: USD } }
+            amountDue: { value: "560.00", currency: { code: USD } }
+            invoiceDate: "2025-11-20"
+            dueDate: "2025-12-20"
+          - id: SW52b2ljZTphY21lLTAwMg==
+            invoiceNumber: "WAV-2025-002"
+            status: PAID
+            total: { value: "1280.00", currency: { code: USD } }
+            amountDue: { value: "0.00", currency: { code: USD } }
+            invoiceDate: "2025-10-04"
+            dueDate: "2025-11-04"
+
+    # ============================================================
+    # Communication
+    # ============================================================
+
+    - id: discord-acme
+      provider: discord
+      provider_config_key: discord
+      connection_config:
+        guild_id: "934512889400000000"
+      metadata:
+        organizationId: org_acme
+      records:
+        Channel:
+          - id: "934512889400000010"
+            name: general
+            type: 0
+            guild_id: "934512889400000000"
+            position: 0
+          - id: "934512889400000011"
+            name: incident-response
+            type: 0
+            guild_id: "934512889400000000"
+            position: 4
+        # Discord author objects carry global_name/discriminator/avatar
+        # (discriminator is "0" for migrated users in the new username
+        # system). Message `type: 0` is the default user message.
+        Message:
+          - id: "1199999999999999990"
+            channel_id: "934512889400000011"
+            type: 0
+            content: "Pager from CloudWatch — RDS CPU > 80% on prod-eu"
+            author:
+              id: "200000000000000001"
+              username: ops-bot
+              global_name: ops-bot
+              discriminator: "0"
+              avatar: a_bab14f271d565501444b2ca3be944b25
+              bot: true
+            timestamp: "2025-12-01T10:14:21.000000+00:00"
+            edited_timestamp: null
+            mention_everyone: false
+            pinned: false
+          - id: "1199999999999999991"
+            channel_id: "934512889400000011"
+            type: 0
+            content: On it, scaling read replicas
+            author:
+              id: "200000000000000002"
+              username: priya
+              global_name: Priya Anand
+              discriminator: "0"
+              avatar: null
+              bot: false
+            timestamp: "2025-12-01T10:15:02.000000+00:00"
+            edited_timestamp: null
+            mention_everyone: false
+            pinned: false
+
+    - id: microsoft-teams-acme
+      provider: microsoft-teams
+      provider_config_key: microsoft-teams
+      connection_config:
+        tenant_id: 1f4e0a8e-d100-4c93-a8b6-acme00000000
+      metadata:
+        organizationId: org_acme
+      records:
+        Channel:
+          - id: "19:abcdef@thread.tacv2"
+            displayName: Sales Pipeline
+            description: Daily sync on top deals
+            membershipType: standard
+          - id: "19:zyxwvu@thread.tacv2"
+            displayName: Eng Standup
+            description: AM sync, Mon to Fri
+            membershipType: private
+
+    # ============================================================
+    # Email / Marketing
+    # ============================================================
+
+    - id: mailchimp-acme
+      provider: mailchimp
+      provider_config_key: mailchimp
+      connection_config:
+        dc: us21
+      metadata:
+        organizationId: org_acme
+      records:
+        # Mailchimp member `id` is the MD5 hash of the lowercased email
+        # (the subscriber_hash). Status enum: subscribed / unsubscribed /
+        # cleaned / pending / transactional / archived.
+        Member:
+          - id: 4f0a8e0c0b1d2e3f4a5b6c7d8e9f0a1b
+            email_address: priya@agent-emulate.dev
+            unique_email_id: c8f2a90b1d
+            contact_id: 33c8f2a90b1d4f00ac01b6e0
+            full_name: Priya Anand
+            web_id: 4400123
+            email_type: html
+            status: subscribed
+            merge_fields:
+              FNAME: Priya
+              LNAME: Anand
+            stats: { avg_open_rate: 0.42, avg_click_rate: 0.11 }
+            ip_signup: "203.0.113.10"
+            timestamp_signup: "2025-09-14T10:12:00+00:00"
+            list_id: 1a2b3c4d5e
+          - id: 5b1f9d1d1c2e3f4a5b6c7d8e9f0a1b2c
+            email_address: tomas@agent-emulate.dev
+            unique_email_id: d0a3b81c2e
+            contact_id: 44d0a3b81c2e4f00ac02b6e1
+            full_name: Tomas Eriksen
+            web_id: 4400124
+            email_type: html
+            status: subscribed
+            merge_fields:
+              FNAME: Tomas
+              LNAME: Eriksen
+            stats: { avg_open_rate: 0.38, avg_click_rate: 0.09 }
+            ip_signup: "203.0.113.22"
+            timestamp_signup: "2025-10-04T14:30:00+00:00"
+            list_id: 1a2b3c4d5e
+        Campaign:
+          - id: 9f8e7d6c5b
+            web_id: 220011
+            type: regular
+            create_time: "2025-11-10T18:00:00+00:00"
+            send_time: "2025-11-12T08:00:00+00:00"
+            status: sent
+            emails_sent: 12450
+            archive_url: https://mailchi.mp/acme/november-product-update
+            recipients:
+              list_id: 1a2b3c4d5e
+              list_name: Acme newsletter
+            settings:
+              subject_line: November product update
+              preview_text: Whats new at Acme
+              title: 2025-11 Newsletter
+              from_name: Acme Team
+              reply_to: hello@agent-emulate.dev
+
+    - id: sendgrid-acme
+      provider: sendgrid
+      provider_config_key: sendgrid
+      metadata:
+        organizationId: org_acme
+      records:
+        Contact:
+          # SendGrid Marketing list_ids / segment_ids are UUIDs, not slugs.
+          # Single-contact responses include the `_metadata.self` self-link.
+          - id: "0c8b0e0a-1234-5678-90ab-cdef00000001"
+            email: priya@agent-emulate.dev
+            alternate_emails: []
+            first_name: Priya
+            last_name: Anand
+            list_ids: ["b6f3b7a0-0001-4f00-9c00-acme00000001"]
+            segment_ids: []
+            custom_fields: {}
+            created_at: "2025-09-14T10:12:00Z"
+            updated_at: "2025-09-14T10:12:00Z"
+            _metadata:
+              self: https://api.sendgrid.com/v3/marketing/contacts/0c8b0e0a-1234-5678-90ab-cdef00000001
+          - id: "0c8b0e0a-1234-5678-90ab-cdef00000002"
+            email: tomas@agent-emulate.dev
+            alternate_emails: []
+            first_name: Tomas
+            last_name: Eriksen
+            list_ids:
+              - "b6f3b7a0-0001-4f00-9c00-acme00000001"
+              - "b6f3b7a0-0002-4f00-9c00-acme00000002"
+            segment_ids: []
+            custom_fields: {}
+            created_at: "2025-10-04T14:30:00Z"
+            updated_at: "2025-10-04T14:30:00Z"
+            _metadata:
+              self: https://api.sendgrid.com/v3/marketing/contacts/0c8b0e0a-1234-5678-90ab-cdef00000002
+
+    - id: klaviyo-acme
+      provider: klaviyo
+      provider_config_key: klaviyo
+      metadata:
+        organizationId: org_acme
+      records:
+        Profile:
+          - id: "01HXYZACMEPROFILE01"
+            type: profile
+            attributes:
+              email: priya@agent-emulate.dev
+              first_name: Priya
+              last_name: Anand
+              created: "2025-09-14T10:12:00+00:00"
+          - id: "01HXYZACMEPROFILE02"
+            type: profile
+            attributes:
+              email: tomas@agent-emulate.dev
+              first_name: Tomas
+              last_name: Eriksen
+              created: "2025-10-04T14:30:00+00:00"
+
+    - id: gmail-acme
+      provider: gmail
+      provider_config_key: gmail
+      connection_config:
+        email_address: ops@agent-emulate.dev
+      metadata:
+        organizationId: org_acme
+      records:
+        Message:
+          # Gmail API users.messages.get response: From/To/Subject live in
+          # payload.headers[] as {name, value}, never as top-level fields.
+          - id: 18d4f0e1a2b3c4d5
+            threadId: 18d4f0e1a2b3c4d5
+            labelIds: [INBOX, CATEGORY_UPDATES, IMPORTANT]
+            snippet: A $1,450.00 payment from Acme Corp succeeded
+            historyId: "5104221"
+            internalDate: "1731504000000"
+            sizeEstimate: 14820
+            payload:
+              partId: ""
+              mimeType: multipart/alternative
+              filename: ""
+              headers:
+                - { name: From, value: "Stripe <alerts@stripe.com>" }
+                - { name: To, value: ops@agent-emulate.dev }
+                - { name: Subject, value: Successful payment for invoice INV-7001 }
+                - { name: Date, value: "Wed, 13 Nov 2025 12:00:00 +0000" }
+                - { name: Message-ID, value: "<msg-INV-7001@stripe.com>" }
+          - id: 18d4f0e2c3d4e5f6
+            threadId: 18d4f0e2c3d4e5f6
+            labelIds: [INBOX, UNREAD]
+            snippet: Marco Ruiz requested your review
+            historyId: "5104330"
+            internalDate: "1731590400000"
+            sizeEstimate: 9214
+            payload:
+              partId: ""
+              mimeType: multipart/alternative
+              filename: ""
+              headers:
+                - { name: From, value: "GitHub <noreply@github.com>" }
+                - { name: To, value: ops@agent-emulate.dev }
+                - { name: Subject, value: "[acme/api] PR #420 ready for review" }
+                - { name: Date, value: "Thu, 14 Nov 2025 12:00:00 +0000" }
+                - { name: Message-ID, value: "<acme/api/pull/420@github.com>" }
+
+    # ============================================================
+    # Storage
+    # ============================================================
+
+    - id: dropbox-acme
+      provider: dropbox
+      provider_config_key: dropbox
+      metadata:
+        organizationId: org_acme
+      records:
+        # Dropbox metadata uses `.tag` to discriminate file vs folder, and
+        # always pairs `path_lower` with `path_display`. `client_modified`
+        # is set by the upload client; `server_modified` is when Dropbox
+        # received it. `rev` is the per-file revision id. `content_hash`
+        # is Dropbox's hex hash for change detection.
+        File:
+          - ".tag": file
+            id: id:a4ayc_80_OEAAAAAAAAAYa
+            name: 2025-Q4-board-deck.pdf
+            path_lower: /board/2025-q4-board-deck.pdf
+            path_display: /Board/2025-Q4-board-deck.pdf
+            client_modified: "2025-12-01T15:02:00Z"
+            server_modified: "2025-12-01T15:02:05Z"
+            rev: "0123456789abcdef"
+            size: 2418293
+            content_hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            is_downloadable: true
+          - ".tag": file
+            id: id:b5bzd_91_PEBBBBBBBBBZb
+            name: Onboarding-checklist.docx
+            path_lower: /hr/onboarding-checklist.docx
+            path_display: /HR/Onboarding-checklist.docx
+            client_modified: "2025-11-19T09:30:00Z"
+            server_modified: "2025-11-19T09:30:11Z"
+            rev: "01abcdef89abcdef"
+            size: 38421
+            content_hash: a1b2c344298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852bcde
+            is_downloadable: true
+
+    - id: box-acme
+      provider: box
+      provider_config_key: box
+      metadata:
+        organizationId: org_acme
+      records:
+        # Box parent reference carries {type, id, name, sequence_id, etag};
+        # every user reference (created_by, owned_by, modified_by) uses
+        # {type:'user', id, name, login}.
+        File:
+          - id: "1845032100001"
+            type: file
+            name: SOC2-evidence-2025.zip
+            size: 84211044
+            sha1: "85136C79CBF9FE36BB9D05D0639C70C265C18D37"
+            created_at: "2025-12-02T11:14:00-08:00"
+            modified_at: "2025-12-02T12:14:00-08:00"
+            created_by:
+              type: user
+              id: "11000001"
+              name: Priya Anand
+              login: priya@agent-emulate.dev
+            owned_by:
+              type: user
+              id: "11000001"
+              name: Priya Anand
+              login: priya@agent-emulate.dev
+            parent:
+              type: folder
+              id: "228401000001"
+              name: Compliance
+              sequence_id: "3"
+              etag: "1"
+          - id: "1845032100002"
+            type: file
+            name: vendor-contract-globex.pdf
+            size: 414221
+            sha1: "12345C79CBF9FE36BB9D05D0639C70C265C18ABC"
+            created_at: "2025-11-22T09:00:00-08:00"
+            modified_at: "2025-11-22T10:00:00-08:00"
+            created_by:
+              type: user
+              id: "11000002"
+              name: Marco Ruiz
+              login: marco@agent-emulate.dev
+            owned_by:
+              type: user
+              id: "11000002"
+              name: Marco Ruiz
+              login: marco@agent-emulate.dev
+            parent:
+              type: folder
+              id: "228401000002"
+              name: Contracts
+              sequence_id: "5"
+              etag: "2"
+
+    # ============================================================
+    # Calendar
+    # ============================================================
+
+    - id: google-calendar-acme
+      provider: google-calendar
+      provider_config_key: google-calendar
+      connection_config:
+        calendar_id: primary
+      metadata:
+        organizationId: org_acme
+      records:
+        Event:
+          - id: ev_acme_weekly_sync
+            summary: Acme weekly sync
+            start: { dateTime: "2025-12-08T09:00:00-08:00", timeZone: America/Los_Angeles }
+            end: { dateTime: "2025-12-08T09:30:00-08:00", timeZone: America/Los_Angeles }
+            attendees:
+              - { email: priya@agent-emulate.dev, responseStatus: accepted }
+              - { email: marco@agent-emulate.dev, responseStatus: accepted }
+            status: confirmed
+          - id: ev_acme_qbr
+            summary: QBR — Globex
+            start: { dateTime: "2025-12-10T13:00:00-08:00", timeZone: America/Los_Angeles }
+            end: { dateTime: "2025-12-10T14:00:00-08:00", timeZone: America/Los_Angeles }
+            attendees:
+              - { email: tomas@agent-emulate.dev, responseStatus: needsAction }
+            status: confirmed
+
+    - id: outlook-calendar-acme
+      provider: outlook-calendar
+      provider_config_key: outlook-calendar
+      metadata:
+        organizationId: org_acme
+      records:
+        Event:
+          - id: AAMkAGI1AAA0G_PAAA=
+            subject: Sprint planning
+            start: { dateTime: "2025-12-09T15:00:00", timeZone: UTC }
+            end: { dateTime: "2025-12-09T16:00:00", timeZone: UTC }
+            organizer: { emailAddress: { name: Marco Ruiz, address: marco@agent-emulate.dev } }
+            isAllDay: false
+
+    # ============================================================
+    # Project / Issue tracking
+    # ============================================================
+
+    - id: jira-acme
+      provider: jira
+      provider_config_key: jira
+      connection_config:
+        cloud_id: 1f4e0a8e-d100-4c93-a8b6-acme00000000
+        site_url: https://acme.atlassian.net
+      metadata:
+        organizationId: org_acme
+      records:
+        Issue:
+          - id: "10001"
+            key: ACME-1
+            fields:
+              summary: Add SSO via Okta
+              status: { name: In Progress, statusCategory: { key: indeterminate } }
+              priority: { name: High }
+              assignee: { displayName: Priya Anand, emailAddress: priya@agent-emulate.dev }
+              created: "2025-11-18T10:00:00.000+0000"
+          - id: "10002"
+            key: ACME-2
+            fields:
+              summary: Stripe webhook retry storm
+              status: { name: To Do, statusCategory: { key: new } }
+              priority: { name: Critical }
+              assignee: null
+              created: "2025-12-01T12:30:00.000+0000"
+        Project:
+          - id: "10000"
+            key: ACME
+            name: Acme Platform
+            projectTypeKey: software
+            style: classic
+
+    - id: linear-acme
+      provider: linear
+      provider_config_key: linear
+      metadata:
+        organizationId: org_acme
+      records:
+        # Linear nested types always carry their own UUID `id`; `state.type`
+        # is the enum (backlog / unstarted / started / completed / canceled).
+        # priority: 0 no priority, 1 urgent, 2 high, 3 medium, 4 low.
+        Issue:
+          - id: 6f8a1b2c-3d4e-5f60-7180-acme00000001
+            identifier: ENG-101
+            title: Migrate webhooks to v2 schema
+            description: null
+            priority: 2
+            state:
+              id: 8a0b1c2d-3e4f-5061-7283-acmeSTATE0002
+              name: In Progress
+              type: started
+              color: "#f2c94c"
+            assignee:
+              id: 7b1c2d3e-4f50-6172-8394-acmeUSER0001
+              name: Priya Anand
+              email: priya@agent-emulate.dev
+              displayName: priya
+            team:
+              id: 5c4d3e2f-1a0b-9c8d-7e6f-acmeTEAM0001
+              key: ENG
+              name: Engineering
+            createdAt: "2025-11-18T10:00:00.000Z"
+            updatedAt: "2025-12-02T11:14:00.000Z"
+            archivedAt: null
+          - id: 6f8a1b2c-3d4e-5f60-7180-acme00000002
+            identifier: ENG-102
+            title: Add audit log table
+            description: null
+            priority: 3
+            state:
+              id: 8a0b1c2d-3e4f-5061-7283-acmeSTATE0001
+              name: Backlog
+              type: backlog
+              color: "#bec2c8"
+            assignee: null
+            team:
+              id: 5c4d3e2f-1a0b-9c8d-7e6f-acmeTEAM0001
+              key: ENG
+              name: Engineering
+            createdAt: "2025-11-25T16:00:00.000Z"
+            updatedAt: "2025-11-25T16:00:00.000Z"
+            archivedAt: null
+
+    - id: asana-acme
+      provider: asana
+      provider_config_key: asana
+      connection_config:
+        workspace_gid: "1200000000000001"
+      metadata:
+        organizationId: org_acme
+      records:
+        # Asana objects carry a `resource_type` discriminator at every level
+        # (top-level and on each nested {gid,name} reference). Dates split
+        # between `due_on` (YYYY-MM-DD) and `due_at` (ISO datetime when set).
+        Task:
+          - gid: "1200000000001001"
+            resource_type: task
+            name: Draft Q1 launch plan
+            completed: false
+            assignee: { gid: "100000001", resource_type: user, name: Priya Anand }
+            projects: [{ gid: "1200000000000010", resource_type: project, name: Q1 Launch }]
+            workspace: { gid: "1200000000000001", resource_type: workspace, name: Acme }
+            due_on: "2025-12-31"
+            due_at: null
+            created_at: "2025-11-04T10:00:00.000Z"
+            modified_at: "2025-11-22T14:00:00.000Z"
+          - gid: "1200000000001002"
+            resource_type: task
+            name: Hire two SDRs
+            completed: false
+            assignee: { gid: "100000002", resource_type: user, name: Marco Ruiz }
+            projects: [{ gid: "1200000000000011", resource_type: project, name: GTM Ops }]
+            workspace: { gid: "1200000000000001", resource_type: workspace, name: Acme }
+            due_on: "2026-01-15"
+            due_at: null
+            created_at: "2025-11-12T09:00:00.000Z"
+            modified_at: "2025-12-01T16:00:00.000Z"
+
+    - id: notion-acme
+      provider: notion
+      provider_config_key: notion
+      metadata:
+        organizationId: org_acme
+      records:
+        Page:
+          # Notion page properties are keyed by user-defined name, but each
+          # value carries its own `id`, a `type` discriminator, and a value
+          # field named after the type (title, people, date, ...). Rich-text
+          # arrays carry `plain_text` alongside the structured `text`.
+          - object: page
+            id: 9e1a2b3c-4d5e-6f70-8190-acme00000001
+            created_time: "2025-09-01T10:00:00.000Z"
+            last_edited_time: "2025-12-02T11:14:00.000Z"
+            archived: false
+            in_trash: false
+            url: https://www.notion.so/acme/Runbook-9e1a2b3c
+            public_url: null
+            icon: { type: emoji, emoji: "" }
+            cover: null
+            parent:
+              type: database_id
+              database_id: a1b2c3d4-e5f6-7890-1234-acme00000010
+            properties:
+              Name:
+                id: title
+                type: title
+                title:
+                  - type: text
+                    text: { content: "Runbook — Production incidents", link: null }
+                    plain_text: "Runbook — Production incidents"
+                    href: null
+                    annotations: { bold: false, italic: false, strikethrough: false, underline: false, code: false, color: default }
+              Owner:
+                id: "M%3BBw"
+                type: people
+                people:
+                  - { object: user, id: 0f1a2b3c-4d5e-6f70-8190-acmeUSER0001, name: Priya Anand, type: person }
+        Database:
+          - object: database
+            id: a1b2c3d4-e5f6-7890-1234-acme00000010
+            title:
+              - type: text
+                text: { content: Engineering Standups, link: null }
+                plain_text: Engineering Standups
+                href: null
+                annotations: { bold: false, italic: false, strikethrough: false, underline: false, code: false, color: default }
+            parent:
+              type: workspace
+              workspace: true
+
+    - id: clickup-acme
+      provider: clickup
+      provider_config_key: clickup
+      connection_config:
+        workspace_id: "9001234"
+      metadata:
+        organizationId: org_acme
+      records:
+        # ClickUp returns user ids as STRINGS (not numbers) and date fields
+        # like due_date as STRING millisecond timestamps. status carries
+        # both the human label and the workflow `type` (open / custom / closed).
+        Task:
+          - id: "abc123"
+            name: Ship onboarding tour
+            status:
+              status: in progress
+              color: "#fbbf24"
+              type: custom
+              orderindex: 1
+            assignees:
+              - id: "90011"
+                username: priya
+                email: priya@agent-emulate.dev
+                color: "#7b68ee"
+                profilePicture: null
+            due_date: "1735603200000"
+            list: { id: "1500001", name: Growth }
+            archived: false
+            priority: null
+            time_estimate: null
+            url: https://app.clickup.com/t/abc123
+
+    - id: monday-acme
+      provider: monday
+      provider_config_key: monday
+      metadata:
+        organizationId: org_acme
+      records:
+        Item:
+          - id: "8800000001"
+            name: Renew vendor agreement — AWS
+            board: { id: "1100000010", name: Procurement }
+            group: { id: topics, title: Open contracts }
+            column_values:
+              - { id: status, text: Working on it, value: "{\"index\":1}" }
+              - { id: date, text: "2026-01-31", value: "{\"date\":\"2026-01-31\"}" }
+
+    - id: trello-acme
+      provider: trello
+      provider_config_key: trello
+      metadata:
+        organizationId: org_acme
+      records:
+        # Trello shortLink + shortUrl + url all derive from the same
+        # 8-char alphanumeric link id. dueComplete pairs with due. Labels
+        # are full {id, idBoard, name, color} objects (color from a fixed
+        # palette: yellow / green / red / blue / orange / purple / sky /
+        # lime / pink / black).
+        Card:
+          - id: 64f0a8e0c0b1d2e3f4a5b6c7
+            idShort: 42
+            name: Onboarding redesign
+            idBoard: 64a0a8e0c0b1d2e3f4a5b6c0
+            idList: 64a0a8e0c0b1d2e3f4a5b6c1
+            due: "2026-01-10T17:00:00.000Z"
+            dueComplete: false
+            closed: false
+            pos: 65535
+            shortLink: H0TZyzbK
+            shortUrl: https://trello.com/c/H0TZyzbK
+            url: https://trello.com/c/H0TZyzbK/42-onboarding-redesign
+            idMembers:
+              - 64bbe4b7ddc1b351efACME001
+            labels:
+              - { id: 64ccacb7ddc1b351efLABEL01, idBoard: 64a0a8e0c0b1d2e3f4a5b6c0, name: Priority, color: red }
+        Board:
+          - id: 64a0a8e0c0b1d2e3f4a5b6c0
+            name: Acme Roadmap
+            desc: ""
+            closed: false
+            idOrganization: 64a0a8e0c0b1d2e3f4a5bORG0
+            url: https://trello.com/b/abc123/acme-roadmap
+            shortUrl: https://trello.com/b/abc123
+            shortLink: abc123
+            prefs:
+              permissionLevel: org
+              backgroundColor: "#0079BF"
+
+    # ============================================================
+    # Code hosts
+    # ============================================================
+
+    - id: github-acme
+      provider: github
+      provider_config_key: github
+      connection_config:
+        installation_id: 4422001
+        organization: acme
+      metadata:
+        organizationId: org_acme
+      records:
+        # GitHub REST API uses snake_case across the board, integer ids, and
+        # always returns the full `owner` user object on a repo response.
+        # Labels carry id+node_id+name+color+description even though seeds
+        # most often just need name.
+        Repository:
+          - id: 920100001
+            node_id: MDEwOlJlcG9zaXRvcnk5MjAxMDAwMDE=
+            name: api
+            full_name: acme/api
+            owner:
+              login: acme
+              id: 660100001
+              node_id: MDQ6T3JnNjYwMTAwMDAx
+              type: Organization
+              site_admin: false
+              html_url: https://github.com/acme
+              avatar_url: https://avatars.githubusercontent.com/u/660100001?v=4
+            private: true
+            html_url: https://github.com/acme/api
+            description: Acme HTTP API
+            fork: false
+            language: TypeScript
+            default_branch: main
+            pushed_at: "2025-12-02T11:14:00Z"
+            created_at: "2024-04-01T09:00:00Z"
+            updated_at: "2025-12-02T11:14:00Z"
+          - id: 920100002
+            node_id: MDEwOlJlcG9zaXRvcnk5MjAxMDAwMDI=
+            name: web
+            full_name: acme/web
+            owner:
+              login: acme
+              id: 660100001
+              node_id: MDQ6T3JnNjYwMTAwMDAx
+              type: Organization
+              site_admin: false
+              html_url: https://github.com/acme
+              avatar_url: https://avatars.githubusercontent.com/u/660100001?v=4
+            private: true
+            html_url: https://github.com/acme/web
+            description: Acme web app
+            fork: false
+            language: TypeScript
+            default_branch: main
+            pushed_at: "2025-12-01T22:48:00Z"
+            created_at: "2024-04-01T09:00:00Z"
+            updated_at: "2025-12-01T22:48:00Z"
+        Issue:
+          - id: 1810000420
+            node_id: MDU6SXNzdWUxODEwMDAwNDIw
+            number: 420
+            title: SSO via Okta SAML
+            state: open
+            user: { login: priya, id: 100001, type: User, site_admin: false }
+            labels:
+              - { id: 5500001, name: feat, color: 0e8a16, default: false }
+              - { id: 5500002, name: priority/high, color: d93f0b, default: false }
+            assignee: null
+            milestone: null
+            comments: 3
+            created_at: "2025-11-18T10:00:00Z"
+            updated_at: "2025-12-01T09:00:00Z"
+            html_url: https://github.com/acme/api/issues/420
+          - id: 1810000421
+            node_id: MDU6SXNzdWUxODEwMDAwNDIx
+            number: 421
+            title: Webhook retries triple-firing
+            state: open
+            user: { login: marco, id: 100002, type: User, site_admin: false }
+            labels:
+              - { id: 5500003, name: bug, color: d73a4a, default: true }
+              - { id: 5500004, name: priority/critical, color: b60205, default: false }
+            assignee: null
+            milestone: null
+            comments: 1
+            created_at: "2025-12-01T12:30:00Z"
+            updated_at: "2025-12-02T08:00:00Z"
+            html_url: https://github.com/acme/api/issues/421
+
+    - id: gitlab-acme
+      provider: gitlab
+      provider_config_key: gitlab
+      connection_config:
+        instance_url: https://gitlab.com
+      metadata:
+        organizationId: org_acme
+      records:
+        # GitLab labels on issues are bare strings, NOT objects like
+        # GitHub. iid is the project-internal issue number; id is global.
+        # namespace.kind is "user" or "group".
+        Project:
+          - id: 50100001
+            description: Acme HTTP API
+            name: api
+            path: api
+            path_with_namespace: acme/api
+            default_branch: main
+            visibility: private
+            ssh_url_to_repo: git@gitlab.com:acme/api.git
+            http_url_to_repo: https://gitlab.com/acme/api.git
+            web_url: https://gitlab.com/acme/api
+            created_at: "2024-04-01T09:00:00Z"
+            last_activity_at: "2025-12-02T11:14:00.000Z"
+            namespace:
+              id: 8800001
+              name: Acme
+              path: acme
+              kind: group
+              full_path: acme
+              web_url: https://gitlab.com/groups/acme
+        Issue:
+          - id: 70100001
+            iid: 17
+            project_id: 50100001
+            title: Migrate runners to fleet 2.0
+            description: We need to roll the shared runners onto the fleet 2.0 images.
+            state: opened
+            assignees:
+              - id: 1000001
+                username: priya
+                name: Priya Anand
+                state: active
+                avatar_url: https://gitlab.com/uploads/-/system/user/avatar/1000001/avatar.png
+                web_url: https://gitlab.com/priya
+            author:
+              id: 1000001
+              username: priya
+              name: Priya Anand
+            labels: [infra, "priority::high"]
+            milestone: null
+            created_at: "2025-11-22T08:00:00.000Z"
+            updated_at: "2025-12-02T11:14:00.000Z"
+            web_url: https://gitlab.com/acme/api/-/issues/17
+
+    # ============================================================
+    # Support
+    # ============================================================
+
+    - id: zendesk-acme
+      provider: zendesk
+      provider_config_key: zendesk
+      connection_config:
+        subdomain: acme
+      metadata:
+        organizationId: org_acme
+      records:
+        Ticket:
+          - id: 30041
+            subject: Cannot log in after SSO change
+            status: open
+            priority: high
+            requester_id: 4400001
+            assignee_id: 100001
+            created_at: "2025-12-01T13:14:00Z"
+            tags: [auth, sso]
+          - id: 30042
+            subject: Refund request for INV-7001
+            status: pending
+            priority: normal
+            requester_id: 4400002
+            assignee_id: null
+            created_at: "2025-12-02T09:01:00Z"
+            tags: [billing, refund]
+        User:
+          - id: 4400001
+            name: Priya Anand
+            email: priya@agent-emulate.dev
+            role: end-user
+          - id: 4400002
+            name: Tomas Eriksen
+            email: tomas@agent-emulate.dev
+            role: end-user
+
+    - id: intercom-acme
+      provider: intercom
+      provider_config_key: intercom
+      metadata:
+        organizationId: org_acme
+      records:
+        Contact:
+          - id: 65a0a8e0c0b1d2e3f4a5b6c0
+            type: contact
+            role: user
+            email: priya@agent-emulate.dev
+            name: Priya Anand
+            created_at: 1726309920
+        Conversation:
+          - id: "199900001"
+            type: conversation
+            state: open
+            source: { type: email, subject: Pricing question }
+            contacts: { contacts: [{ id: 65a0a8e0c0b1d2e3f4a5b6c0 }] }
+            created_at: 1733049240
+
+    # ============================================================
+    # HR / ATS
+    # ============================================================
+
+    - id: bamboohr-acme
+      provider: bamboohr
+      provider_config_key: bamboohr
+      connection_config:
+        subdomain: acme
+      metadata:
+        organizationId: org_acme
+      records:
+        Employee:
+          - id: "401"
+            firstName: Priya
+            lastName: Anand
+            workEmail: priya@agent-emulate.dev
+            jobTitle: VP Engineering
+            department: Engineering
+            hireDate: "2022-04-11"
+            employmentHistoryStatus: Active
+          - id: "402"
+            firstName: Marco
+            lastName: Ruiz
+            workEmail: marco@agent-emulate.dev
+            jobTitle: Director of Operations
+            department: Operations
+            hireDate: "2021-09-01"
+            employmentHistoryStatus: Active
+
+    - id: greenhouse-acme
+      provider: greenhouse
+      provider_config_key: greenhouse
+      metadata:
+        organizationId: org_acme
+      records:
+        Candidate:
+          - id: 88800001
+            first_name: Hannah
+            last_name: Cohen
+            email_addresses: [{ value: hannah@agent-emulate.dev, type: personal }]
+            applications:
+              - id: 90010001
+                status: active
+                current_stage: { id: 7, name: Onsite Interview }
+                jobs: [{ id: 1010, name: Senior Backend Engineer }]
+            created_at: "2025-11-04T10:00:00Z"
+        Job:
+          - id: 1010
+            name: Senior Backend Engineer
+            status: open
+            departments: [{ id: 20, name: Engineering }]
+            offices: [{ id: 4, name: Remote — US }]
+
+    - id: lever-acme
+      provider: lever
+      provider_config_key: lever
+      metadata:
+        organizationId: org_acme
+      records:
+        # Lever uses UUID strings for every id (stage.id, posting.id,
+        # contact). createdAt is a millisecond unix timestamp NUMBER, not
+        # ISO. `posting` is a UUID reference; expanding it needs ?expand=posting.
+        Opportunity:
+          - id: 4f3a8b0c-1234-5678-90ab-acme00000001
+            name: Hannah Cohen
+            headline: "Senior Backend Engineer @ Aurora Labs"
+            stage:
+              id: b0c22d5e-5f4e-4c6e-bb3a-acmeSTAGE0001
+              text: Onsite Interview
+            posting: 6a1e4b79-75a3-454f-9417-acmePOSTING001
+            contact: c38e60e9-5992-45e5-8f81-acmeCONTACT001
+            emails: [hannah@agent-emulate.dev]
+            archived: null
+            createdAt: 1730707200000
+            lastInteractionAt: 1733049240000
+            origin: applied
+
+    # ============================================================
+    # E-commerce
+    # ============================================================
+
+    - id: shopify-acme
+      provider: shopify
+      provider_config_key: shopify
+      connection_config:
+        shop: acme-supply.myshopify.com
+      metadata:
+        organizationId: org_acme
+      records:
+        Product:
+          - id: 7702000000001
+            title: Acme Supply Kit
+            handle: acme-supply-kit
+            product_type: Kits
+            vendor: Acme Supply
+            status: active
+            variants:
+              - { id: 41200000001, price: "49.00", sku: ACME-KIT-01, inventory_quantity: 240 }
+          - id: 7702000000002
+            title: Acme Spare Bundle
+            handle: acme-spare-bundle
+            product_type: Bundles
+            vendor: Acme Supply
+            status: active
+            variants:
+              - { id: 41200000002, price: "19.00", sku: ACME-SPARE-02, inventory_quantity: 1020 }
+        Order:
+          # Shopify REST returns customer as a full nested object and uses
+          # snake_case fulfillment_status with values null/partial/fulfilled/
+          # restocked. line_items carry variant_id + product_id refs.
+          - id: 5301000000001
+            name: "#1001"
+            email: priya@agent-emulate.dev
+            financial_status: paid
+            fulfillment_status: fulfilled
+            total_price: "49.00"
+            subtotal_price: "49.00"
+            currency: USD
+            customer:
+              id: 4400000000001
+              email: priya@agent-emulate.dev
+              first_name: Priya
+              last_name: Anand
+              created_at: "2025-09-14T10:12:00-08:00"
+            line_items:
+              - id: 13900000001
+                title: Acme Supply Kit
+                quantity: 1
+                price: "49.00"
+                sku: ACME-KIT-01
+                variant_id: 41200000001
+                product_id: 7702000000001
+            created_at: "2025-12-01T10:14:00-08:00"
+            updated_at: "2025-12-01T10:14:00-08:00"
+            processed_at: "2025-12-01T10:14:00-08:00"
+
+    # ============================================================
+    # Analytics
+    # ============================================================
+
+    - id: mixpanel-acme
+      provider: mixpanel
+      provider_config_key: mixpanel
+      connection_config:
+        project_id: "3200000"
+      metadata:
+        organizationId: org_acme
+      records:
+        # Mixpanel raw export returns JSONL: one {event, properties} per
+        # line. `$insert_id` is what Mixpanel uses for deduplication —
+        # always include it on writes. `time` is a unix second timestamp.
+        Event:
+          - event: Signed Up
+            properties:
+              time: 1726309920
+              distinct_id: priya@agent-emulate.dev
+              $insert_id: 8a0b1c2d3e4f5061acme00000001
+              $source: organic
+              $browser: Chrome
+              plan: free
+          - event: Upgraded Plan
+            properties:
+              time: 1731504000
+              distinct_id: priya@agent-emulate.dev
+              $insert_id: 8a0b1c2d3e4f5061acme00000002
+              $source: in_app
+              $browser: Chrome
+              from: free
+              to: pro
+              mrr: 49
+
+    # ============================================================
+    # Forms / Data
+    # ============================================================
+
+    - id: typeform-acme
+      provider: typeform
+      provider_config_key: typeform
+      metadata:
+        organizationId: org_acme
+      records:
+        Form:
+          - id: AcmeQ4
+            title: Acme Q4 customer survey
+            language: en
+            workspace: { href: https://api.typeform.com/workspaces/acme }
+            created_at: "2025-09-01T09:00:00Z"
+        Response:
+          - response_id: 01HXYZACMERESP001
+            submitted_at: "2025-11-12T14:02:00Z"
+            answers:
+              - { field: { id: nps, type: opinion_scale }, type: number, number: 9 }
+              - { field: { id: feedback, type: long_text }, type: text, text: Love the new dashboard. }
+
+    - id: airtable-acme
+      provider: airtable
+      provider_config_key: airtable
+      connection_config:
+        base_id: appacme0000000001
+      metadata:
+        organizationId: org_acme
+      records:
+        Record:
+          - id: rec0acmeContact01
+            fields: { Name: Priya Anand, Email: priya@agent-emulate.dev, Stage: Customer }
+            createdTime: "2025-09-14T10:12:00.000Z"
+          - id: rec0acmeContact02
+            fields: { Name: Tomas Eriksen, Email: tomas@agent-emulate.dev, Stage: Trialing }
+            createdTime: "2025-10-04T14:30:00.000Z"
+
+    - id: calendly-acme
+      provider: calendly
+      provider_config_key: calendly
+      connection_config:
+        organization_uri: https://api.calendly.com/organizations/acme
+      metadata:
+        organizationId: org_acme
+      records:
+        # Calendly identifies every resource by full URI (no separate `id`).
+        # status enum: active / canceled. location.type values: zoom /
+        # google_conference / microsoft_teams_conference / physical /
+        # outbound_call / inbound_call / custom. invitees_counter.limit
+        # is the max bookable; total includes canceled, active does not.
+        # The single-event endpoint wraps in {resource: {...}} but sync
+        # records are stored unwrapped.
+        ScheduledEvent:
+          - uri: https://api.calendly.com/scheduled_events/EVT_001
+            name: "30 min intro — Priya / Marco"
+            status: active
+            start_time: "2025-12-08T17:00:00.000000Z"
+            end_time: "2025-12-08T17:30:00.000000Z"
+            event_type: https://api.calendly.com/event_types/ET_INTRO_30
+            location:
+              type: zoom
+              status: pushed
+              join_url: https://zoom.us/j/123456789
+            invitees_counter: { total: 1, active: 1, limit: 1 }
+            event_memberships:
+              - user: https://api.calendly.com/users/USR_PRIYA
+                user_email: priya@agent-emulate.dev
+                user_name: Priya Anand
+            event_guests: []
+            created_at: "2025-12-01T09:00:00.000000Z"
+            updated_at: "2025-12-01T09:00:00.000000Z"
+          - uri: https://api.calendly.com/scheduled_events/EVT_002
+            name: "60 min discovery — Globex"
+            status: active
+            start_time: "2025-12-10T21:00:00.000000Z"
+            end_time: "2025-12-10T22:00:00.000000Z"
+            event_type: https://api.calendly.com/event_types/ET_DISCO_60
+            location:
+              type: google_conference
+              status: pushed
+              join_url: https://meet.google.com/abc-defg-hij
+            invitees_counter: { total: 1, active: 1, limit: 1 }
+            event_memberships:
+              - user: https://api.calendly.com/users/USR_MARCO
+                user_email: marco@agent-emulate.dev
+                user_name: Marco Ruiz
+            event_guests: []
+            created_at: "2025-12-02T14:00:00.000000Z"
+            updated_at: "2025-12-02T14:00:00.000000Z"

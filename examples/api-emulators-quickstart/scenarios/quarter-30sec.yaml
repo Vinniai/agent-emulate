@@ -1,0 +1,22 @@
+# Smoke variant of quarter-90min.yaml: 360 ticks in 30 wall-seconds.
+# Use with: --wall-seconds 30 --sim-days 90  (driver injects a 259200x clock).
+streams:
+  - name: gmail-quarter
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 720
+    jitter: 0
+    maxCount: 360
+
+  - name: drive-quarter
+    kind: sync
+    provider: drive
+    connectionId: dr-acme
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 720
+    jitter: 0
+    maxCount: 360

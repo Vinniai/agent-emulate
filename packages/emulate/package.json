@@ -1,0 +1,81 @@
+{
+  "name": "emulate",
+  "version": "0.5.0",
+  "description": "Local drop-in replacement services for CI and no-network sandboxes",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/api.js",
+      "types": "./dist/api.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/api.js",
+  "types": "./dist/api.d.ts",
+  "homepage": "https://github.com/Vinniai/agent-emulate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vinniai/agent-emulate.git",
+    "directory": "packages/emulate"
+  },
+  "bugs": {
+    "url": "https://github.com/Vinniai/agent-emulate/issues"
+  },
+  "keywords": [
+    "emulator",
+    "mock",
+    "api",
+    "vercel",
+    "github",
+    "google",
+    "oauth",
+    "testing",
+    "ci",
+    "local-development"
+  ],
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "agent-emulate": "./dist/index.js"
+  },
+  "scripts": {
+    "prepack": "cp ../../README.md .",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1",
+    "commander": "^14",
+    "picocolors": "^1.1.1",
+    "yaml": "^2"
+  },
+  "devDependencies": {
+    "@emulators/core": "workspace:*",
+    "@emulators/github": "workspace:*",
+    "@emulators/apple": "workspace:*",
+    "@emulators/microsoft": "workspace:*",
+    "@emulators/okta": "workspace:*",
+    "@emulators/aws": "workspace:*",
+    "@emulators/google": "workspace:*",
+    "@emulators/mongoatlas": "workspace:*",
+    "@emulators/slack": "workspace:*",
+    "@emulators/vercel": "workspace:*",
+    "@emulators/resend": "workspace:*",
+    "@emulators/stripe": "workspace:*",
+    "@emulators/clerk": "workspace:*",
+    "@emulators/workos": "workspace:*",
+    "@emulators/nango": "workspace:*",
+    "@emulators/simpro": "workspace:*",
+    "@emulators/uptick": "workspace:*",
+    "tsup": "^8",
+    "typescript": "^5.7"
+  }
+}

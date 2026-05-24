@@ -1,0 +1,179 @@
+tokens:
+  gho_test_token_admin:
+    login: admin
+    scopes: [repo, user, admin:org, admin:repo_hook]
+  gho_test_token_octocat:
+    login: octocat
+    scopes: [repo, user, read:user, "user:email", workflow]
+
+# Unified user roster (used by apps/server / @emulators/server).
+# Each user is fanned out into the matching emulators below — the
+# per-service blocks (google:, microsoft:, simpro:, ...) are still
+# honoured and take precedence when entries collide on email/login.
+# Each user automatically gets a bearer token "tok_<id>" that
+# authenticates them across every emulator.
+users:
+  - id: alice
+    role: admin
+    email: alice@agent-emulate.dev
+    name: Alice Admin
+    providers:
+      google:    { gmail: true, calendar: true }
+      microsoft: { teams: ["Engineering"] }
+      simpro:    { staff: true, admin: true }
+      clerk:     true
+      workos:    true
+  - id: bob
+    role: technician
+    email: bob@agent-emulate.dev
+    name: Bob Tech
+    providers:
+      google:    { gmail: true }
+      simpro:    { staff: true, admin: false }
+      uptick:    true
+
+github:
+  users:
+    - login: octocat
+      name: The Octocat
+      email: octocat@github.com
+      bio: I am the Octocat
+      company: GitHub
+      location: San Francisco
+    - login: developer
+      name: Developer
+      email: dev@agent-emulate.dev
+  orgs:
+    - login: my-org
+      name: My Organization
+      description: A test organization
+  repos:
+    - owner: octocat
+      name: hello-world
+      description: My first repository
+      language: JavaScript
+      topics: [hello, world]
+      auto_init: true
+    - owner: my-org
+      name: org-repo
+      description: An organization repository
+      language: TypeScript
+      auto_init: true
+  apps:
+    - app_id: 12345
+      slug: my-github-app
+      name: My GitHub App
+      private_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ...your PEM key...
+        -----END RSA PRIVATE KEY-----
+      permissions:
+        contents: read
+        issues: write
+      events: [push, pull_request, issues]
+      webhook_url: http://localhost:3000/webhooks/github
+      webhook_secret: my-webhook-secret
+      installations:
+        - installation_id: 100
+          account: octocat
+          repository_selection: all
+  oauth_apps:
+    - client_id: emu_github_client_id
+      client_secret: emu_github_client_secret
+      name: Code App
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/github
+
+vercel:
+  users:
+    - username: developer
+      name: Developer
+      email: dev@agent-emulate.dev
+  teams:
+    - slug: my-team
+      name: My Team
+  projects:
+    - name: my-app
+      team: my-team
+      framework: nextjs
+  integrations:
+    - client_id: emu_vercel_client_id
+      client_secret: emu_vercel_client_secret
+      name: Code App (Vercel)
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/vercel
+
+google:
+  users:
+    - email: testuser@agent-emulate.dev
+      name: Test User
+    - email: dev@agent-emulate.dev
+      name: Developer
+  oauth_clients:
+    - client_id: emu_google_client_id
+      client_secret: emu_google_client_secret
+      name: Code App (Google)
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/google
+  labels:
+    - id: Label_ops
+      user_email: testuser@agent-emulate.dev
+      name: Ops/Review
+      color_background: "#DDEEFF"
+      color_text: "#111111"
+  messages:
+    - id: msg_welcome
+      user_email: testuser@agent-emulate.dev
+      from: welcome@agent-emulate.dev
+      to: testuser@agent-emulate.dev
+      subject: Welcome to the Gmail emulator
+      body_text: You can now test Gmail, Calendar, and Drive flows locally.
+      label_ids:
+        - INBOX
+        - UNREAD
+        - CATEGORY_UPDATES
+      date: 2025-01-04T10:00:00.000Z
+  calendars:
+    - id: primary
+      user_email: testuser@agent-emulate.dev
+      summary: testuser@agent-emulate.dev
+      primary: true
+      selected: true
+      time_zone: UTC
+  calendar_events:
+    - id: evt_kickoff
+      user_email: testuser@agent-emulate.dev
+      calendar_id: primary
+      summary: Project Kickoff
+      start_date_time: 2025-01-10T09:00:00.000Z
+      end_date_time: 2025-01-10T09:30:00.000Z
+  drive_items:
+    - id: drv_docs
+      user_email: testuser@agent-emulate.dev
+      name: Docs
+      mime_type: application/vnd.google-apps.folder
+      parent_ids:
+        - root
+
+stripe:
+  customers:
+    - email: dev@agent-emulate.dev
+      name: Developer
+    - email: alice@agent-emulate.dev
+      name: Alice Admin
+  products:
+    - name: Taskr Pro
+      description: Test product for local emulator
+  prices:
+    - product_name: Taskr Pro
+      currency: usd
+      unit_amount: 2900
+      lookup_key: taskr_pro_monthly
+      recurring:
+        interval: month
+
+nango:
+  connections:
+    - id: hubspot-dev
+      provider: hubspot
+      provider_config_key: hubspot

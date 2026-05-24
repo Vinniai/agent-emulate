@@ -1,0 +1,68 @@
+# Many streams at once — every provider the simulator can drive, concurrently.
+#
+# Five `sync` providers append provider-faithful records (+ a sync webhook)
+# and one `forward` provider (WhatsApp) wraps + relays its own webhook. Each
+# stream is capped with `maxCount` so the run is deterministic and finite.
+#
+# Used by `realtime-stream.ts` Segment B: streaming "from many" in one run,
+# every stream asserted to have delivered exactly its cap.
+streams:
+  - name: gmail-inbox
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 30
+    jitter: 0.3
+    maxCount: 8
+
+  - name: graph-inbox
+    kind: sync
+    provider: graph-mail
+    connectionId: ms-acme
+    providerConfigKey: outlook
+    model: messages
+    ratePerMinute: 20
+    jitter: 0.3
+    maxCount: 6
+
+  - name: teams-chatter
+    kind: sync
+    provider: teams
+    connectionId: teams-acme
+    providerConfigKey: microsoft-teams
+    model: messages
+    ratePerMinute: 24
+    jitter: 0.4
+    maxCount: 7
+
+  - name: drive-uploads
+    kind: sync
+    provider: drive
+    connectionId: dr-acme
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 12
+    jitter: 0.3
+    maxCount: 5
+
+  - name: calendar-events
+    kind: sync
+    provider: calendar
+    connectionId: cal-acme
+    providerConfigKey: google-calendar
+    model: events
+    ratePerMinute: 10
+    jitter: 0.4
+    maxCount: 4
+
+  - name: whatsapp-inbound
+    kind: forward
+    provider: whatsapp
+    connectionId: wa-acme
+    providerConfigKey: whatsapp
+    environmentUuid: env-1
+    ratePerMinute: 16
+    jitter: 0.5
+    maxCount: 6

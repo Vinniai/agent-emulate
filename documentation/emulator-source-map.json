@@ -1,0 +1,193 @@
+{
+  "generated_at": "2026-05-20",
+  "notes": [
+    "Machine-readable specs are preferred when a provider publishes them.",
+    "When no public machine spec exists, the listed official docs are the audit source and the emulator should document that limitation.",
+    "Seed-derived providers use examples/nango-seeds.yaml plus tools/gen-standalone.mjs PATH_OVERRIDES for native path shape."
+  ],
+  "services": [
+    {
+      "service": "simpro",
+      "package": "@emulators/simpro",
+      "source_kind": "vendored_swagger_2",
+      "status": "spec-backed fallback implemented",
+      "local_artifacts": ["documentation/simpro-swagger.json"],
+      "source_urls": ["https://developer.simprogroup.com/apidoc/#tag/Swagger-OpenAPI-2.0"],
+      "accuracy_notes": "All 1,435 Swagger operations are registered. Bespoke handlers run first; unmatched spec routes use the Swagger fallback and generic swagger_records seed/export store."
+    },
+    {
+      "service": "uptick",
+      "package": "@emulators/uptick",
+      "source_kind": "official_self_describing_api",
+      "status": "partial hand-written subset",
+      "local_artifacts": [],
+      "source_urls": [
+        "https://support.uptickhq.com/en/articles/6728314-uptick-api-overview-and-patch-notes",
+        "https://support.uptickhq.com/en/articles/6728183-uptick-api-sample-postman-collection"
+      ],
+      "accuracy_notes": "Uptick publishes v2 REST plus JSON:API docs, states live /api/v2.8/ and OPTIONS are canonical endpoint metadata, and provides a small Postman sample. No public full OpenAPI/Postman collection was found."
+    },
+    {
+      "service": "github",
+      "package": "@emulators/github",
+      "source_kind": "official_openapi_available_not_vendored",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": [
+        "https://docs.github.com/rest/overview/openapi-description",
+        "https://github.com/github/rest-api-description"
+      ],
+      "accuracy_notes": "GitHub publishes OpenAPI 3.0 and 3.1 descriptions. The emulator should eventually vendor or fetch the bundled api.github.com description and register a spec fallback like SimPro."
+    },
+    {
+      "service": "stripe",
+      "package": "@emulators/stripe",
+      "source_kind": "official_openapi_available_not_vendored",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://github.com/stripe/openapi"],
+      "accuracy_notes": "Stripe publishes public OpenAPI specs. The emulator should use that spec for route coverage and schema-shaped fallbacks."
+    },
+    {
+      "service": "google",
+      "package": "@emulators/google",
+      "source_kind": "official_discovery_available_not_vendored",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://developers.google.com/discovery"],
+      "accuracy_notes": "Google APIs publish machine-readable Discovery Documents. Gmail, Calendar, Drive, OAuth and OIDC should be checked against those documents."
+    },
+    {
+      "service": "microsoft",
+      "package": "@emulators/microsoft",
+      "source_kind": "official_openapi_available_not_vendored",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://github.com/microsoftgraph/msgraph-metadata"],
+      "accuracy_notes": "Microsoft Graph publishes metadata/OpenAPI artifacts. The emulator currently targets OAuth/OIDC and selected Graph routes."
+    },
+    {
+      "service": "aws",
+      "package": "@emulators/aws",
+      "source_kind": "official_service_models_available_not_vendored",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://github.com/boto/botocore/tree/develop/botocore/data"],
+      "accuracy_notes": "AWS service models are public through SDK model repositories. Current emulator covers selected S3, SQS, IAM and STS flows."
+    },
+    {
+      "service": "slack",
+      "package": "@emulators/slack",
+      "source_kind": "official_docs",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://api.slack.com/web"],
+      "accuracy_notes": "Slack Web API docs are the audit source. No canonical full OpenAPI document is vendored."
+    },
+    {
+      "service": "vercel",
+      "package": "@emulators/vercel",
+      "source_kind": "official_docs",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://vercel.com/docs/rest-api"],
+      "accuracy_notes": "Vercel REST docs are the audit source. No canonical full OpenAPI document is vendored."
+    },
+    {
+      "service": "workos",
+      "package": "@emulators/workos",
+      "source_kind": "official_docs",
+      "status": "hand-written subset",
+      "local_artifacts": [],
+      "source_urls": ["https://workos.com/docs/reference"],
+      "accuracy_notes": "WorkOS reference docs are the audit source."
+    },
+    {
+      "service": "nango",
+      "package": "@emulators/nango",
+      "source_kind": "official_docs_plus_seed_library",
+      "status": "hand-written core with provider seed catalogue",
+      "local_artifacts": ["examples/nango-seeds.yaml"],
+      "source_urls": ["https://docs.nango.dev/reference/api"],
+      "accuracy_notes": "Nango core routes are hand-written. Provider records are SDK-shaped fixtures in examples/nango-seeds.yaml."
+    },
+    {
+      "service": "native-kit generated providers",
+      "package": "@emulators/native-kit",
+      "source_kind": "seed_derived_native_paths",
+      "status": "generated from seed catalogue",
+      "local_artifacts": ["examples/nango-seeds.yaml", "tools/gen-standalone.mjs"],
+      "source_urls": [],
+      "accuracy_notes": "Generated standalone packages use explicit PATH_OVERRIDES in tools/gen-standalone.mjs where available. These packages are route-shape accurate for selected seeded models, not full provider API coverage."
+    },
+    {
+      "service": "xero",
+      "package": "@emulators/xero",
+      "source_kind": "copied_direct_native_routes",
+      "status": "hand-written selected native surface",
+      "local_artifacts": ["packages/@emulators/nango/src/routes/direct-xero.ts"],
+      "source_urls": ["https://developer.xero.com/documentation/api/accounting/overview"],
+      "accuracy_notes": "Standalone package is generated by copying the Nango direct native route and stripping the /xero-emu prefix."
+    },
+    {
+      "service": "quickbooks",
+      "package": "@emulators/quickbooks",
+      "source_kind": "copied_direct_native_routes",
+      "status": "hand-written selected native surface",
+      "local_artifacts": ["packages/@emulators/nango/src/routes/direct-quickbooks.ts"],
+      "source_urls": ["https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/account"],
+      "accuracy_notes": "Standalone package is generated by copying the Nango direct native route and stripping the /quickbooks-emu prefix."
+    },
+    {
+      "service": "salesforce",
+      "package": "@emulators/salesforce",
+      "source_kind": "copied_direct_native_routes",
+      "status": "hand-written selected native surface",
+      "local_artifacts": ["packages/@emulators/nango/src/routes/direct-salesforce.ts"],
+      "source_urls": ["https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/intro_rest.htm"],
+      "accuracy_notes": "Standalone package is generated by copying the Nango direct native route and stripping the /salesforce-emu prefix."
+    },
+    {
+      "service": "hubspot",
+      "package": "@emulators/hubspot",
+      "source_kind": "copied_direct_native_routes",
+      "status": "hand-written selected native surface",
+      "local_artifacts": [
+        "packages/@emulators/nango/src/routes/direct-hubspot.ts",
+        "packages/@emulators/nango/src/routes/direct-hubspot-crm.ts"
+      ],
+      "source_urls": ["https://developers.hubspot.com/docs/api/overview"],
+      "accuracy_notes": "Standalone package is generated by copying Nango direct native routes and stripping the /hubspot-emu prefix."
+    }
+  ],
+  "generated_provider_packages": [
+    "airtable",
+    "asana",
+    "bamboohr",
+    "box",
+    "calendly",
+    "clickup",
+    "discord",
+    "dropbox",
+    "freshbooks",
+    "gitlab",
+    "greenhouse",
+    "intercom",
+    "jira",
+    "klaviyo",
+    "lever",
+    "linear",
+    "mailchimp",
+    "mixpanel",
+    "monday",
+    "notion",
+    "pipedrive",
+    "sendgrid",
+    "shopify",
+    "trello",
+    "typeform",
+    "wave-accounting",
+    "zendesk",
+    "zoho-crm"
+  ]
+}

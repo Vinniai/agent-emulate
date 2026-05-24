@@ -1,0 +1,20 @@
+# One stream, realtime cadence — the simplest "events arriving live" demo.
+#
+# Used by `realtime-stream.ts` Segment A: a single Gmail inbox dripping new
+# messages in real wall-clock time (~2 / second) so you watch them land.
+#
+#   tsx src/realtime-stream.ts        # in-process, no network
+#
+# Or against a running deployment with the published CLI:
+#   emulate-sim run scenarios/single-gmail.yaml --base http://nango.localhost:1355
+durationSec: 5
+streams:
+  - name: gmail-inbox
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 120 # one every 0.5s
+    jitter: 0.2
+    maxCount: 6

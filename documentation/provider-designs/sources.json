@@ -1,0 +1,20 @@
+{
+  "description": "Login-capable emulators mapped to the real provider login/auth URL used to extract design tokens via `npx brandmd <url>`. The emulated login/consent pages are styled from these, with the agent-emulate watermark overlaid to distinguish them from the real thing.",
+  "providers": {
+    "google":     { "name": "Google",      "loginUrl": "https://accounts.google.com" },
+    "microsoft":  { "name": "Microsoft",   "loginUrl": "https://login.microsoftonline.com" },
+    "apple":      { "name": "Apple",        "loginUrl": "https://appleid.apple.com/sign-in" },
+    "github":     { "name": "GitHub",       "loginUrl": "https://github.com/login" },
+    "okta":       { "name": "Okta",         "loginUrl": "https://www.okta.com" },
+    "slack":      { "name": "Slack",        "loginUrl": "https://slack.com/signin" },
+    "salesforce": { "name": "Salesforce",   "loginUrl": "https://login.salesforce.com" },
+    "workos":     { "name": "WorkOS",       "loginUrl": "https://workos.com" },
+    "clerk":      { "name": "Clerk",        "loginUrl": "https://clerk.com" },
+    "hubspot":    { "name": "HubSpot",      "loginUrl": "https://app.hubspot.com/login" },
+    "stripe":     { "name": "Stripe",       "loginUrl": "https://dashboard.stripe.com/login" },
+    "vercel":     { "name": "Vercel",       "loginUrl": "https://vercel.com/login" },
+    "resend":     { "name": "Resend",       "loginUrl": "https://resend.com/login" },
+    "nango":      { "name": "Nango",        "loginUrl": "https://www.nango.dev" },
+    "simpro":     { "name": "Simpro",       "loginUrl": "https://www.simprogroup.com" }
+  }
+}

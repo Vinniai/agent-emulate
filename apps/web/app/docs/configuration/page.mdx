@@ -1,0 +1,518 @@
+# Configuration
+
+Configuration is optional. All services start with sensible defaults. To customize seed data, create `emulate.config.yaml` in your project root (or pass `--seed`):
+
+```yaml
+tokens:
+  gho_test_token_admin:
+    login: admin
+    scopes:
+      - repo
+      - user
+      - admin:org
+      - admin:repo_hook
+  gho_test_token_user1:
+    login: octocat
+    scopes:
+      - repo
+      - user
+```
+
+## Vercel Seed Config
+
+```yaml
+vercel:
+  users:
+    - username: developer
+      name: Developer
+      email: dev@agent-emulate.dev
+  teams:
+    - slug: my-team
+      name: My Team
+  projects:
+    - name: my-app
+      team: my-team
+      framework: nextjs
+      envVars:
+        - key: DATABASE_URL
+          value: postgres://localhost
+          target: [production, preview]
+```
+
+## Vercel Integrations
+
+Register Vercel OAuth integrations for strict client validation:
+
+```yaml
+vercel:
+  integrations:
+    - client_id: "oac_abc123"
+      client_secret: "secret_abc123"
+      name: "My Vercel App"
+      redirect_uris:
+        - "http://localhost:3000/api/auth/callback/vercel"
+```
+
+## GitHub Seed Config
+
+```yaml
+github:
+  users:
+    - login: octocat
+      name: The Octocat
+      email: octocat@github.com
+      bio: I am the Octocat
+      company: GitHub
+      location: San Francisco
+
+  orgs:
+    - login: my-org
+      name: My Organization
+      description: A test organization
+
+  repos:
+    - owner: octocat
+      name: hello-world
+      description: My first repository
+      language: JavaScript
+      topics: [hello, world]
+      auto_init: true
+    - owner: my-org
+      name: org-repo
+      description: An organization repository
+      language: TypeScript
+      auto_init: true
+```
+
+## GitHub OAuth Apps
+
+Register OAuth applications so the emulator validates `client_id`, `client_secret`, and `redirect_uri` during the OAuth flow:
+
+```yaml
+github:
+  oauth_apps:
+    - client_id: "Iv1.abc123"
+      client_secret: "secret_abc123"
+      name: "My Web App"
+      redirect_uris:
+        - "http://localhost:3000/api/auth/callback/github"
+```
+
+If no `oauth_apps` are configured, the emulator accepts any `client_id` (backward-compatible). With apps configured, strict validation is enforced.
+
+## GitHub Apps
+
+Full GitHub App support with JWT authentication and installation access tokens:
+
+```yaml
+github:
+  apps:
+    - app_id: 12345
+      slug: "my-github-app"
+      name: "My GitHub App"
+      private_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ...your PEM key...
+        -----END RSA PRIVATE KEY-----
+      permissions:
+        contents: read
+        issues: write
+      events: [push, pull_request]
+      installations:
+        - installation_id: 100
+          account: my-org
+          repository_selection: all
+          permissions:
+            contents: read
+```
+
+**Endpoints:**
+- `GET /app` - get authenticated app (JWT required)
+- `GET /app/installations` - list app installations
+- `GET /app/installations/:id` - get installation
+- `POST /app/installations/:id/access_tokens` - create installation access token
+- `GET /repos/:owner/:repo/installation` - find repo installation
+- `GET /orgs/:org/installation` - find org installation
+- `GET /users/:username/installation` - find user installation
+
+JWT authentication: sign a JWT with `{ iss: "<app_id>" }` using the app's private key (RS256). The emulator verifies the signature and resolves the app.
+
+## Google Seed Config
+
+```yaml
+google:
+  users:
+    - email: testuser@agent-emulate.dev
+      name: Test User
+    - email: admin@agent-emulate.dev
+      name: Admin
+      hd: agent-emulate.dev
+  oauth_clients:
+    - client_id: my-client-id.apps.googleusercontent.com
+      client_secret: GOCSPX-secret
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/google
+  labels:
+    - id: Label_ops
+      user_email: testuser@agent-emulate.dev
+      name: Ops/Review
+  messages:
+    - id: msg_welcome
+      user_email: testuser@agent-emulate.dev
+      from: welcome@agent-emulate.dev
+      to: testuser@agent-emulate.dev
+      subject: Welcome to the Gmail emulator
+      body_text: You can now test Gmail, Calendar, and Drive flows locally.
+      label_ids: [INBOX, UNREAD]
+  calendars:
+    - id: primary
+      user_email: testuser@agent-emulate.dev
+      summary: testuser@agent-emulate.dev
+      primary: true
+  calendar_events:
+    - id: evt_kickoff
+      user_email: testuser@agent-emulate.dev
+      calendar_id: primary
+      summary: Project Kickoff
+      start_date_time: 2025-01-10T09:00:00.000Z
+      end_date_time: 2025-01-10T09:30:00.000Z
+  drive_items:
+    - id: drv_docs
+      user_email: testuser@agent-emulate.dev
+      name: Docs
+      mime_type: application/vnd.google-apps.folder
+      parent_ids: [root]
+```
+
+### Hosted domain (hd) claim
+
+Google Workspace accounts include an `hd` claim in ID tokens and userinfo responses identifying the user's hosted domain. The emulator derives this automatically from the user's email domain. Consumer domains (`agent-emulate.dev`, `googlemail.com`) omit the claim, matching real Google behavior.
+
+To override the derived value, set `hd` on a seeded user. To suppress the claim entirely, set `hd` to an empty string.
+
+## SimPro Swagger Records
+
+SimPro includes typed seed fields for the high-use entities and a generic
+`swagger_records` section for any collection covered by the bundled Swagger
+spec. Use the concrete API collection path as the key, including parent ids.
+
+```yaml
+simpro:
+  swagger_records:
+    /api/v1.0/companies/0/catalogGroups/:
+      - ID: 77
+        Name: Seeded catalog group
+        DisplayOrder: 2
+```
+
+Spec-only `POST`, `PATCH`, `PUT`, and `DELETE` routes persist into this generic
+store. `storeToSeedConfig` exports those rows back into `swagger_records`, so
+large SimPro sims can round-trip the full Swagger surface without adding one
+seed field per endpoint.
+
+### SimPro Workflow Profiles
+
+Use the quickstart SimPro simulator when you need realistic workflow data plus
+full Swagger route coverage:
+
+```bash
+pnpm --filter api-emulators-quickstart simpro-sim:90d
+pnpm --filter api-emulators-quickstart simpro-sim:180d
+pnpm --filter api-emulators-quickstart simpro-sim:1y-plus-6m
+```
+
+Each profile includes six months of future scheduled work. Export a reusable
+bootable seed file with:
+
+```bash
+SIMPRO_SIM_EXPORT=./tmp/simpro-90d.seed.json pnpm --filter api-emulators-quickstart simpro-sim:90d
+```
+
+The export contains the linked workflow graph and schema-complete
+`simpro.swagger_records` generated from the vendored Swagger spec for
+spec-only endpoints.
+
+Run all three profiles side by side when one app needs to compare behavior
+against multiple data windows:
+
+```bash
+pnpm --filter api-emulators-quickstart simpro-profiles
+```
+
+The runner starts:
+
+```bash
+SIMPRO_90D_BASE_URL=http://localhost:4030
+SIMPRO_180D_BASE_URL=http://localhost:4031
+SIMPRO_1Y_PLUS_6M_BASE_URL=http://localhost:4032
+```
+
+It also performs OAuth and job-count smoke checks against each endpoint. Use
+`--seconds 30` for bounded CI or demo runs.
+
+Open `/inspector` on any SimPro endpoint to view an overview and left-sidebar
+links for schedules, quotes, invoices, payments, vendor orders, assets,
+inventory, recurring work, setup records and webhook activity.
+
+### Core Provider Profiles
+
+Use `core-profiles` when one app needs the full core provider matrix across
+the same data windows:
+
+```bash
+pnpm --filter api-emulators-quickstart core-profiles
+```
+
+The runner starts three Nango endpoints. Every provider gets the same
+per-profile record count: 40 records for `90d`, 52 for `180d`, and 79 for
+`1y-plus-6m`.
+
+```bash
+CORE_90D_NANGO_URL=http://localhost:4040
+CORE_180D_NANGO_URL=http://localhost:4041
+CORE_1Y_PLUS_6M_NANGO_URL=http://localhost:4042
+```
+
+Seeded connections:
+
+```text
+crm        salesforce-acme, hubspot-acme, pipedrive-acme, zoho-crm-acme
+accounting freshbooks-acme, wave-acme
+chat       slack-acme, discord-acme, microsoft-teams-acme
+email      gmail-acme, outlook-mail-acme, mailchimp-acme, sendgrid-acme, klaviyo-acme
+storage    google-drive-acme, onedrive-acme, dropbox-acme, box-acme
+calendar   google-calendar-acme, outlook-calendar-acme
+projects   jira-acme, linear-acme, asana-acme, notion-acme, clickup-acme, monday-acme, trello-acme
+code       github-acme, gitlab-acme
+support    zendesk-acme, intercom-acme
+hr         bamboohr-acme, greenhouse-acme, lever-acme
+commerce   shopify-acme
+analytics  mixpanel-acme
+forms      typeform-acme
+database   airtable-acme
+scheduling calendly-acme
+```
+
+Read records with Nango's normal `Connection-Id` and `Provider-Config-Key`
+headers.
+
+Validate a running endpoint against Nango's record and webhook contracts:
+
+```bash
+pnpm --filter api-emulators-quickstart core-profiles:validate -- --base-url http://localhost:4040
+```
+
+Nango realtime workflows are webhook-based, not WebSocket-based. Providers send
+webhooks to Nango, Nango updates its records cache or forwards the provider
+payload, and your app reads changed records from `GET /records` using
+`_nango_metadata.cursor`.
+
+Fetch real Nango records for comparison with:
+
+```bash
+curl -G "https://api.nango.dev/records" \
+  -H "Authorization: Bearer $NANGO_SECRET_KEY" \
+  -H "Connection-Id: $NANGO_CONNECTION_ID" \
+  -H "Provider-Config-Key: $NANGO_PROVIDER_CONFIG_KEY" \
+  --data-urlencode "model=$NANGO_MODEL" \
+  --data-urlencode "limit=100"
+```
+
+The local Nango emulator covers the current sync workflow routes:
+`/connections`, `/connections/metadata`, `/records`, `/records/prune`,
+`/sync/start`, `/sync/pause`, `/sync/trigger`, `/sync/status`, and
+`/sync/{name}/variant/{variant}`. Deprecated `/connection` aliases remain
+available for older clients.
+
+## Source Parity Audits
+
+The repo tracks each emulator's source of truth in
+`documentation/emulator-source-map.json`. Run `pnpm audit:sources` to list
+which services are backed by a vendored spec, official machine-readable docs,
+official human docs, or seed-derived native paths.
+
+Uptick does not publish a public full OpenAPI spec. Its official docs describe
+the v2 API as REST plus JSON:API and point developers at the live `/api/v2.8/`
+index plus `OPTIONS` metadata as the canonical endpoint description. The
+emulator mirrors that behavior for its supported resources.
+
+With an authorized Uptick tenant, generate a vendorable endpoint catalogue:
+
+```bash
+pnpm discover:uptick -- --base-url https://tenant.onuptick.com --token "$UPTICK_ACCESS_TOKEN" --out documentation/uptick-discovery.json
+```
+
+The script also supports `UPTICK_USERNAME`, `UPTICK_PASSWORD`,
+`UPTICK_CLIENT_ID`, and `UPTICK_CLIENT_SECRET` for the password grant. Only run
+it against tenants you are allowed to access.
+
+Public GitHub code search can supplement the tenant crawl, but it is only a
+hint source:
+
+```bash
+GITHUB_TOKEN=ghp_... pnpm search:uptick-public-code -- --out documentation/uptick-public-code-search.json
+```
+
+## Slack Seed Config
+
+```yaml
+slack:
+  team:
+    name: My Workspace
+    domain: my-workspace
+  users:
+    - name: developer
+      real_name: Developer
+      email: dev@agent-emulate.dev
+      is_admin: true
+  channels:
+    - name: general
+      topic: General discussion
+    - name: engineering
+      topic: Engineering discussions
+      is_private: true
+  bots:
+    - name: my-bot
+  oauth_apps:
+    - client_id: "12345.67890"
+      client_secret: example_client_secret
+      name: My Slack App
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/slack
+  incoming_webhooks:
+    - channel: general
+      label: CI Notifications
+  signing_secret: my_signing_secret
+```
+
+When no OAuth apps are configured, the emulator accepts any `client_id`. With apps configured, strict validation is enforced.
+
+## Apple Seed Config
+
+```yaml
+apple:
+  users:
+    - email: testuser@agent-emulate.dev
+      name: Test User
+      given_name: Test
+      family_name: User
+    - email: private@agent-emulate.dev
+      name: Private User
+      is_private_email: true
+  oauth_clients:
+    - client_id: com.example.app
+      team_id: TEAM001
+      name: My Apple App
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/apple
+```
+
+Users with `is_private_email: true` get a generated `@privaterelay.appleid.com` email in the `id_token`.
+
+## Microsoft Seed Config
+
+```yaml
+microsoft:
+  users:
+    - email: testuser@agent-emulate.dev
+      name: Test User
+      given_name: Test
+      family_name: User
+      tenant_id: 9188040d-6c67-4c5b-b112-36a304b66dad
+  oauth_clients:
+    - client_id: example-client-id
+      client_secret: example-client-secret
+      name: My Microsoft App
+      redirect_uris:
+        - http://localhost:3000/api/auth/callback/microsoft-entra-id
+      tenant_id: 9188040d-6c67-4c5b-b112-36a304b66dad
+```
+
+## AWS Seed Config
+
+```yaml
+aws:
+  region: us-east-1
+  s3:
+    buckets:
+      - name: my-app-bucket
+      - name: my-app-uploads
+        region: eu-west-1
+  sqs:
+    queues:
+      - name: my-app-events
+      - name: my-app-dlq
+        visibility_timeout: 60
+      - name: my-app-orders.fifo
+        fifo: true
+  iam:
+    users:
+      - user_name: developer
+        create_access_key: true
+    roles:
+      - role_name: lambda-execution-role
+        description: Role for Lambda function execution
+```
+
+Default seed (always created): S3 bucket `emulate-default`, SQS queue `emulate-default-queue`, IAM user `admin` with access key pair.
+
+## Okta Seed Config
+
+```yaml
+okta:
+  users:
+    - login: testuser@agent-emulate.dev
+      email: testuser@agent-emulate.dev
+      firstName: Test
+      lastName: User
+  groups:
+    - name: Everyone
+      description: All users
+  apps:
+    - name: My App
+      label: My App
+  authorization_servers:
+    - name: default
+      audiences: ["api://default"]
+```
+
+## MongoDB Atlas Seed Config
+
+```yaml
+mongoatlas:
+  projects:
+    - name: my-project
+  clusters:
+    - project: my-project
+      name: my-cluster
+  database_users:
+    - project: my-project
+      username: app-user
+```
+
+## Resend Seed Config
+
+```yaml
+resend:
+  domains:
+    - name: agent-emulate.dev
+  api_keys:
+    - name: default
+```
+
+## Stripe Seed Config
+
+```yaml
+stripe:
+  customers:
+    - name: Test Customer
+      email: test@agent-emulate.dev
+  products:
+    - name: Pro Plan
+  prices:
+    - product: Pro Plan
+      unit_amount: 2000
+      currency: usd
+      recurring:
+        interval: month
+```

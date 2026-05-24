@@ -1,0 +1,42 @@
+# The "just leave it running" scenario — UNCAPPED.
+#
+# Every other scenario in this folder pins each stream with `maxCount` so a
+# run is finite and deterministic (good for CI / assertions). This one has
+# NO maxCount: each stream emits forever at a steady, watchable rate until
+# you Ctrl-C. It is what `live-feed.ts` drives so an external app (e.g.
+# taskrs-convex) can stay connected to the running per-port `emulate` server
+# and watch real, ongoing activity flow in.
+#
+# `base` is a sensible default for the per-port CLI layout (nango on :4002);
+# `live-feed.ts` passes the resolved nango URL via `--base`, which overrides
+# this. The connectionIds/providerConfigKeys match the connections seeded at
+# boot by live-feed.ts (gm-acme/dr-acme/cal-acme).
+base: http://localhost:4002
+
+streams:
+  - name: gmail-live
+    kind: sync
+    provider: gmail
+    connectionId: gm-acme
+    providerConfigKey: google-mail
+    model: messages
+    ratePerMinute: 12 # ~one new message every 5s
+    jitter: 0.4
+
+  - name: drive-live
+    kind: sync
+    provider: drive
+    connectionId: dr-acme
+    providerConfigKey: google-drive
+    model: files
+    ratePerMinute: 6 # ~one new file every 10s
+    jitter: 0.4
+
+  - name: calendar-live
+    kind: sync
+    provider: calendar
+    connectionId: cal-acme
+    providerConfigKey: google-calendar
+    model: events
+    ratePerMinute: 4 # ~one new event every 15s
+    jitter: 0.5

@@ -1,0 +1,47 @@
+{
+  "name": "@emulators/box",
+  "version": "0.5.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "homepage": "https://github.com/Vinniai/agent-emulate",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vinniai/agent-emulate.git",
+    "directory": "packages/@emulators/box"
+  },
+  "bugs": {
+    "url": "https://github.com/Vinniai/agent-emulate/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup --clean",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@emulators/core": "workspace:*",
+    "hono": "^4",
+    "@emulators/native-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8",
+    "typescript": "^5.7",
+    "vitest": "^4.1.0"
+  }
+}
