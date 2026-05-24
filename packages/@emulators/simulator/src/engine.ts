@@ -140,9 +140,13 @@ export class Simulator {
           "Connection-Id": st.spec.connectionId,
         });
       } else {
-        // Native write: the emulator's own webhook dispatch fires the event.
+        // Native write/read: the emulator's own webhook dispatch fires the
+        // event. Per-tick `headers` (e.g. Nango's `Connection-Id` +
+        // `Provider-Config-Key` for `/proxy/*` reads) ride alongside the
+        // engine's `Authorization`; the tick's values win on conflict.
         await this.send(t.method, `${this.base}${st.spec.pathPrefix ?? ""}${t.path}`, t.body, {
           Authorization: `Bearer ${this.nativeToken}`,
+          ...t.headers,
         });
       }
     }

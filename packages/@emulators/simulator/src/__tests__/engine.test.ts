@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Simulator } from "../engine.js";
 import { loadScenario } from "../scenario.js";
+import { registerGenerator } from "../generators.js";
 
 // The engine is the only stateful piece, so timers + fetch + clock are all
 // injectable. We drive a deterministic virtual clock and capture every HTTP
@@ -169,6 +170,38 @@ describe("Simulator — native stream", () => {
     expect(scn.streams[0]!.kind).toBe("native");
     expect(scn.streams[0]!.pathPrefix).toBe("/github");
     expect(scn.streams[0]!.connectionId).toBe("");
+  });
+
+  it("forwards a tick's own headers alongside Authorization (e.g. Nango /proxy reads)", async () => {
+    // A generator that emits the headers Nango's unified read surface requires.
+    registerGenerator("proxy-read-test", () => ({
+      kind: "native",
+      method: "GET",
+      path: "/proxy/leads",
+      headers: { "Connection-Id": "conn-acme", "Provider-Config-Key": "salesforce" },
+    }));
+    const { calls, fn } = fakeFetch();
+    const sim = new Simulator(
+      loadScenario(`
+streams:
+  - name: nango-proxy
+    kind: native
+    provider: proxy-read-test
+    pathPrefix: /nango
+    ratePerMinute: 60
+    maxCount: 1
+`),
+      { base: "http://emu", fetch: fn as never, nativeToken: "tok-123" },
+    );
+    await sim.runOnce();
+
+    const read = calls.find((c) => c.url.includes("/proxy/leads"))!;
+    expect(read.method).toBe("GET");
+    expect(read.url).toBe("http://emu/nango/proxy/leads");
+    expect(read.headers.Authorization).toBe("Bearer tok-123"); // engine's identity preserved
+    expect(read.headers["Connection-Id"]).toBe("conn-acme"); // per-tick headers merged
+    expect(read.headers["Provider-Config-Key"]).toBe("salesforce");
+    expect(read.body).toBeUndefined(); // GET reads carry no body
   });
 });
 

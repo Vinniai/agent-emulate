@@ -1,0 +1,42 @@
+# Small business — a local trades shop. Modest, steady trickle across a few
+# channels: a bit of email, team chat, and CRM (persons + deals + the odd
+# support ticket).
+#
+# Streaming settings: low ratePerMinute, higher jitter (activity is irregular,
+# not metronomic). durationSec governs the run; override with --duration.
+base: http://localhost:4000
+durationSec: 30
+streams:
+  # email — threaded inbound/outbound (send + import)
+  - name: gmail-shopfront
+    kind: native
+    provider: gmail-thread
+    pathPrefix: /google
+    ratePerMinute: 12
+    jitter: 0.5
+  # chat — threaded
+  - name: slack-team
+    kind: native
+    provider: slack-thread
+    pathPrefix: /slack
+    ratePerMinute: 18
+    jitter: 0.5
+  # crm
+  - name: pipedrive-people
+    kind: native
+    provider: pipedrive-person
+    pathPrefix: /pipedrive
+    ratePerMinute: 10
+    jitter: 0.5
+  - name: pipedrive-jobs
+    kind: native
+    provider: pipedrive-deal
+    pathPrefix: /pipedrive
+    ratePerMinute: 8
+    jitter: 0.5
+  - name: zendesk-callouts
+    kind: native
+    provider: zendesk-ticket
+    pathPrefix: /zendesk
+    ratePerMinute: 6
+    jitter: 0.6

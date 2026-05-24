@@ -1,0 +1,68 @@
+# Large organisation — high-volume traffic across every channel at once.
+#
+# All streams are `kind: native`: each tick is a real REST write to the
+# provider emulator behind apps/server's /:service/* mount (pathPrefix), so the
+# aggregate /_activity stream lights up with genuine cross-provider traffic.
+#
+# Streaming settings: high ratePerMinute, moderate jitter, no maxCount — the
+# global durationSec governs the run (override with the driver's --duration).
+base: http://localhost:4000
+durationSec: 30
+streams:
+  # email — threaded inbound/outbound (send + import)
+  - name: gmail-enterprise
+    kind: native
+    provider: gmail-thread
+    pathPrefix: /google
+    ratePerMinute: 90
+    jitter: 0.3
+  - name: outlook-enterprise
+    kind: native
+    provider: outlook-thread
+    pathPrefix: /microsoft
+    ratePerMinute: 75
+    jitter: 0.3
+  # chat — threaded (Slack thread_ts, Discord thread markers)
+  - name: slack-ops
+    kind: native
+    provider: slack-thread
+    pathPrefix: /slack
+    ratePerMinute: 120
+    jitter: 0.4
+  - name: discord-eng
+    kind: native
+    provider: discord-thread
+    pathPrefix: /discord
+    ratePerMinute: 60
+    jitter: 0.4
+  - name: intercom-support
+    kind: native
+    provider: intercom-convo
+    pathPrefix: /intercom
+    ratePerMinute: 45
+    jitter: 0.3
+  # crm
+  - name: hubspot-contacts
+    kind: native
+    provider: hubspot-contact
+    pathPrefix: /hubspot
+    ratePerMinute: 60
+    jitter: 0.3
+  - name: hubspot-deals
+    kind: native
+    provider: hubspot-deal
+    pathPrefix: /hubspot
+    ratePerMinute: 30
+    jitter: 0.3
+  - name: salesforce-leads
+    kind: native
+    provider: salesforce-lead
+    pathPrefix: /salesforce
+    ratePerMinute: 45
+    jitter: 0.3
+  - name: zendesk-tickets
+    kind: native
+    provider: zendesk-ticket
+    pathPrefix: /zendesk
+    ratePerMinute: 50
+    jitter: 0.4

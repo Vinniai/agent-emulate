@@ -1,0 +1,48 @@
+# Inbound enquiries — sales + support intake. Bursty live chats and tickets,
+# leads landing in the CRM, and auto-reply emails going back out.
+#
+# Streaming settings: chat/ticket streams run hot with HIGH jitter (0.7) so the
+# traffic arrives in bursts rather than an even cadence — the realistic shape of
+# an enquiry queue. CRM + email run steadier behind them.
+base: http://localhost:4000
+durationSec: 30
+streams:
+  # chat — the front door, bursty
+  - name: intercom-livechat
+    kind: native
+    provider: intercom-convo
+    pathPrefix: /intercom
+    ratePerMinute: 100
+    jitter: 0.7
+  - name: zendesk-support
+    kind: native
+    provider: zendesk-ticket
+    pathPrefix: /zendesk
+    ratePerMinute: 80
+    jitter: 0.7
+  - name: slack-routing
+    kind: native
+    provider: slack-thread
+    pathPrefix: /slack
+    ratePerMinute: 60
+    jitter: 0.6
+  # crm — leads captured from the enquiries
+  - name: salesforce-inbound-leads
+    kind: native
+    provider: salesforce-lead
+    pathPrefix: /salesforce
+    ratePerMinute: 50
+    jitter: 0.5
+  - name: hubspot-inbound-contacts
+    kind: native
+    provider: hubspot-contact
+    pathPrefix: /hubspot
+    ratePerMinute: 40
+    jitter: 0.5
+  # email — auto-replies back to the enquirer
+  - name: resend-autoreply
+    kind: native
+    provider: resend-send
+    pathPrefix: /resend
+    ratePerMinute: 70
+    jitter: 0.4
