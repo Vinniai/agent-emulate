@@ -17,7 +17,12 @@ export type GeneratedTick =
   // native stream drives a realistic provider event stream with no Nango in
   // the path. `path` is provider-relative; the stream's `pathPrefix` (e.g.
   // `/github`) is prepended by the engine for `apps/server`-style mounts.
-  | { kind: "native"; method: string; path: string; body?: unknown };
+  //
+  // `headers` are merged onto the request alongside the engine's `Authorization`
+  // (the generator's values win on conflict). This lets a tick carry the
+  // per-request headers a provider read demands — e.g. Nango's `/proxy/*`
+  // unified reads need `Connection-Id` + `Provider-Config-Key`.
+  | { kind: "native"; method: string; path: string; body?: unknown; headers?: Record<string, string> };
 
 export type GeneratorFn = (seq: number, now: Date) => GeneratedTick;
 

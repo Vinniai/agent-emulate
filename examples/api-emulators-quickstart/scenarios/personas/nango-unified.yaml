@@ -1,0 +1,44 @@
+# Nango unified-integration — the same CRM/accounting activity, but routed
+# through the **Nango emulator** (`/nango`) rather than each provider directly.
+#
+# Every stream writes to a Nango `*-emu` base path that persists to Nango's
+# store; Xero + QuickBooks invoices also fire provider webhooks. On the
+# aggregate /_activity stream all of this shows up under the single `nango`
+# service — which is exactly how a Nango-fronted integration looks in practice.
+#
+# Streaming settings: moderate rates, light jitter. durationSec governs the run;
+# override with --duration. Filter to specific providers with
+#   --providers salesforce,xero    (matches by stream provider/name).
+base: http://localhost:4000
+durationSec: 30
+streams:
+  - name: nango-salesforce-leads
+    kind: native
+    provider: nango-salesforce-lead
+    pathPrefix: /nango
+    ratePerMinute: 40
+    jitter: 0.4
+  - name: nango-hubspot-contacts
+    kind: native
+    provider: nango-hubspot-contact
+    pathPrefix: /nango
+    ratePerMinute: 36
+    jitter: 0.4
+  - name: nango-hubspot-deals
+    kind: native
+    provider: nango-hubspot-deal
+    pathPrefix: /nango
+    ratePerMinute: 24
+    jitter: 0.4
+  - name: nango-xero-invoices
+    kind: native
+    provider: nango-xero-invoice
+    pathPrefix: /nango
+    ratePerMinute: 30
+    jitter: 0.5
+  - name: nango-quickbooks-invoices
+    kind: native
+    provider: nango-quickbooks-invoice
+    pathPrefix: /nango
+    ratePerMinute: 24
+    jitter: 0.5
