@@ -15,7 +15,9 @@ describe("createEmulator", () => {
     expect(body.login).toBe("admin");
 
     await github.close();
-  });
+    // Cold start dynamically imports the plugin and binds a real port; the
+    // default 5s timeout is tight on a fresh CI runner. Give it headroom.
+  }, 20000);
 
   it("starts multiple services independently", async () => {
     const [github, vercel] = await Promise.all([
@@ -27,7 +29,7 @@ describe("createEmulator", () => {
     expect(vercel.url).toBe("http://localhost:14011");
 
     await Promise.all([github.close(), vercel.close()]);
-  });
+  }, 20000);
 
   it("reset wipes and re-seeds stores", async () => {
     const github = await createEmulator({
@@ -56,7 +58,7 @@ describe("createEmulator", () => {
     expect(repos).toHaveLength(0);
 
     await github.close();
-  });
+  }, 20000);
 
   it("throws on unknown service", async () => {
     // @ts-expect-error testing invalid service name
