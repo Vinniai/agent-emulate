@@ -12,7 +12,7 @@
 
 ## The `@emulators/msw` adapter (in-process, no server)
 
-`@emulators/msw` turns any provider plugin into MSW request handlers that run the emulators **in-process** — no server, no ports. Every request to `${baseUrl}/<service>/*` is dispatched straight through the provider's Hono app, reusing the exact logic the standalone server runs.
+`@emulators/msw` turns any provider plugin into MSW request handlers that run the emulators **in-process** — no server, no ports. Each provider gets **its own origin**, exactly like `agent-emulate start`: its own port (`http://localhost:4000`, `:4001`, … — base port + index) or, with `portless`, its own subdomain (`https://google.emulate.localhost`). Requests to that origin are dispatched straight through the provider's Hono app, reusing the exact logic the standalone server runs.
 
 ```bash
 pnpm add -D @emulators/msw msw @emulators/google
@@ -27,10 +27,11 @@ import { emulateHandlers } from '@emulators/msw'
 import { googlePlugin } from '@emulators/google'
 import { stripePlugin } from '@emulators/stripe'
 
+// google → http://localhost:4000, stripe → http://localhost:4001 (base port + index).
 const { handlers, services } = emulateHandlers({
-  baseUrl: 'http://localhost:4000',
   services: { google: googlePlugin, stripe: stripePlugin },
 })
+const google = services.get('google')!.baseUrl // 'http://localhost:4000'
 
 const server = setupServer(
   ...handlers,
@@ -43,7 +44,23 @@ afterEach(() => server.resetHandlers())
 afterAll(() => server.close())
 ```
 
-Point your SDKs at the same `baseUrl` you'd use with the live server — switching a suite from the server to in-process MSW needs no other change. The returned `services` map exposes each emulator's live `store`, so you can seed or assert provider state directly.
+Point your SDKs at the same per-service origin you'd use with the live server — switching a suite from the server to in-process MSW needs no other change. The returned `services` map exposes each emulator's `baseUrl` and live `store`, so you can resolve origins and seed or assert provider state directly.
+
+### Addressing: ports vs. portless
+
+```typescript
+// Default — own port per service starting at 4000.
+emulateHandlers({ services: { google, stripe } })
+
+// Start the port range somewhere else.
+emulateHandlers({ port: 9000, services: { google, stripe } })
+
+// Portless subdomains: https://google.emulate.localhost, https://stripe.emulate.localhost
+emulateHandlers({ portless: true, services: { google, stripe } })
+
+// Pin a single service's origin explicitly.
+emulateHandlers({ baseUrls: { google: 'http://localhost:8443' }, services: { google } })
+```
 
 ### Browser (Storybook / component tests)
 
@@ -63,7 +80,7 @@ Because these are ordinary MSW handlers, `server.use(...)` overrides win for a s
 
 ```typescript
 server.use(
-  http.get('http://localhost:4000/google/oauth2/v3/certs',
+  http.get(`${google}/oauth2/v3/certs`,
     () => HttpResponse.json({ keys: [] }, { status: 503 })),
 )
 ```

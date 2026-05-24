@@ -171,19 +171,23 @@ afterAll(() => Promise.all([github.close(), vercel.close()]))
 For unit/component tests where a separate server process is overkill,
 [`@emulators/msw`](./packages/@emulators/msw/) turns any provider plugin into
 [Mock Service Worker](https://github.com/mswjs/msw) request handlers that run the
-emulators **in-process**. Every request to `${baseUrl}/<service>/*` is dispatched
-straight through the provider's Hono app — same logic, zero sockets:
+emulators **in-process**. Each provider gets **its own origin** — its own port
+(`http://localhost:4000`, `:4001`, …) or, with `portless`, its own subdomain
+(`https://google.emulate.localhost`) — the exact addressing `agent-emulate start`
+uses. Point your SDKs at the same URL as the live server; nothing else changes:
 
 ```typescript
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { emulateHandlers } from '@emulators/msw'
 import { googlePlugin } from '@emulators/google'
+import { stripePlugin } from '@emulators/stripe'
 
+// google → http://localhost:4000, stripe → http://localhost:4001 (base port + index).
 const { handlers, services } = emulateHandlers({
-  baseUrl: 'http://localhost:4000',
-  services: { google: googlePlugin },
+  services: { google: googlePlugin, stripe: stripePlugin },
 })
+const google = services.get('google')!.baseUrl // 'http://localhost:4000'
 
 // emulate owns the providers; ordinary MSW handlers own everything else.
 const server = setupServer(
@@ -193,9 +197,13 @@ const server = setupServer(
 server.listen({ onUnhandledRequest: 'bypass' })
 
 // Per-test overrides still win — force a 500, an empty list, a malformed payload:
-server.use(http.get('http://localhost:4000/google/oauth2/v3/certs',
+server.use(http.get(`${google}/oauth2/v3/certs`,
   () => HttpResponse.json({ keys: [] }, { status: 503 })))
 ```
+
+Prefer portless subdomains instead of ports? Pass `portless: true` and each
+service mounts at `https://<name>.emulate.localhost`. Override any single
+service's origin with `baseUrls: { google: 'http://localhost:9000' }`.
 
 agent-emulate and MSW compose at different layers — let emulate own the stateful
 OAuth dance + provider data, and use MSW for per-test edge cases and your own API.

@@ -13,23 +13,35 @@ export interface EmulateService {
   app: { fetch: (req: Request) => Response | Promise<Response> };
   store: Store;
   webhooks: WebhookDispatcher;
+  /** The origin this service is mounted at — the URL SDKs are pointed at. */
   baseUrl: string;
 }
 
 export interface EmulateHandlersOptions {
   /**
    * Map of service name → provider plugin, e.g. `{ google: googlePlugin }`.
-   * Each becomes an in-process emulator mounted under `${baseUrl}/<service>`.
+   * Each becomes an in-process emulator with **its own origin**, exactly like
+   * `agent-emulate start`: the first service is mounted at the base port, the
+   * next at base+1, and so on (google → 4000, stripe → 4001, …).
    */
   services: Record<string, ServicePlugin>;
   /**
-   * Origin (+ optional path) the SDKs are pointed at. Requests to
-   * `${baseUrl}/<service>/*` are routed into the matching in-process app.
-   * Default `http://localhost:4000` — the same base URL the standalone
-   * `agent-emulate` server uses, so switching a test suite from the live
-   * server to in-process MSW needs no other change.
+   * Base port. Service N is mounted at `http://localhost:(port + N)`, mirroring
+   * the per-service ports `agent-emulate start` hands out. Default `4000`.
+   * Ignored for services covered by `portless` or `baseUrls`.
    */
-  baseUrl?: string;
+  port?: number;
+  /**
+   * Portless mode: mount each service at `https://<name>.emulate.localhost`,
+   * mirroring `agent-emulate start --portless`. SDKs point at the subdomain
+   * instead of a port — no path prefixes, one origin per provider.
+   */
+  portless?: boolean;
+  /**
+   * Explicit per-service origin overrides, e.g.
+   * `{ google: "http://localhost:9000" }`. Wins over `port` / `portless`.
+   */
+  baseUrls?: Record<string, string>;
   /** Per-service `createServer` options (tokens, fallbackUser, multiTenant…). */
   serverOptions?: Omit<ServerOptions, "baseUrl" | "port">;
   /** Run each plugin's built-in seed on startup. Default `true`. */
@@ -43,26 +55,27 @@ export interface EmulateMsw {
   services: Map<string, EmulateService>;
 }
 
-/** Build a new Request at `app`-relative path, copying method/headers/body. */
-async function relocate(request: Request, path: string, origin: string): Promise<Request> {
-  const target = new URL(request.url);
-  const init: RequestInit & { duplex?: string } = {
-    method: request.method,
-    headers: request.headers,
-  };
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    // Buffer the body so we don't need streaming half-duplex semantics.
-    init.body = await request.arrayBuffer();
-  }
-  return new Request(new URL(path + target.search, origin).toString(), init);
+const DEFAULT_PORT = 4000;
+
+/** The origin a service is mounted at — matches `agent-emulate start` resolution. */
+function resolveServiceBaseUrl(name: string, index: number, opts: EmulateHandlersOptions): string {
+  const override = opts.baseUrls?.[name];
+  if (override) return override.replace(/\/+$/, "");
+  // Mirrors `portlessBaseUrl()` in the CLI.
+  if (opts.portless) return `https://${name}.emulate.localhost`;
+  return `http://localhost:${(opts.port ?? DEFAULT_PORT) + index}`;
 }
 
 /**
  * Turn a set of agent-emulate provider plugins into MSW request handlers that
  * run the emulators **in-process** — no server, no ports, no Service Worker
- * round-trip to a backend. Each request to `${baseUrl}/<service>/*` is rewritten
- * to the app-relative path and dispatched through the provider's Hono app,
- * reusing the exact same logic the standalone server runs.
+ * round-trip to a backend. Each provider gets **its own origin** — its own port
+ * (`http://localhost:4000`, `:4001`, …) or, with `portless`, its own subdomain
+ * (`https://google.emulate.localhost`) — exactly the addressing `agent-emulate
+ * start` uses. Point your SDKs at the same URL you'd use against the live
+ * server; switching a suite from the server to in-process MSW needs no other
+ * change. Requests to that origin are dispatched straight through the
+ * provider's Hono app, reusing the exact logic the standalone server runs.
  *
  * Pair this with MSW's `setupServer` (Node tests) or `setupWorker` (browser):
  *
@@ -70,8 +83,12 @@ async function relocate(request: Request, path: string, origin: string): Promise
  * import { setupServer } from "msw/node";
  * import { emulateHandlers } from "@emulators/msw";
  * import { googlePlugin } from "@emulators/google";
+ * import { stripePlugin } from "@emulators/stripe";
  *
- * const { handlers, services } = emulateHandlers({ services: { google: googlePlugin } });
+ * // google → http://localhost:4000, stripe → http://localhost:4001
+ * const { handlers, services } = emulateHandlers({
+ *   services: { google: googlePlugin, stripe: stripePlugin },
+ * });
  * const server = setupServer(...handlers);
  * server.listen({ onUnhandledRequest: "bypass" });
  * ```
@@ -81,36 +98,30 @@ async function relocate(request: Request, path: string, origin: string): Promise
  * `agent-emulate` server for redirect-login UX; use this for token/API mocking.
  */
 export function emulateHandlers(opts: EmulateHandlersOptions): EmulateMsw {
-  const baseUrl = (opts.baseUrl ?? "http://localhost:4000").replace(/\/+$/, "");
-  const origin = new URL(baseUrl).origin;
   const services = new Map<string, EmulateService>();
   const handlers: RequestHandler[] = [];
 
-  for (const [name, plugin] of Object.entries(opts.services)) {
-    const svcBase = `${baseUrl}/${name}`;
-    const built = createServer(plugin, { ...opts.serverOptions, baseUrl: svcBase });
-    if (opts.seed !== false) plugin.seed?.(built.store, svcBase);
+  Object.entries(opts.services).forEach(([name, plugin], index) => {
+    const baseUrl = resolveServiceBaseUrl(name, index, opts);
+    const built = createServer(plugin, { ...opts.serverOptions, baseUrl });
+    if (opts.seed !== false) plugin.seed?.(built.store, baseUrl);
 
     const service: EmulateService = {
       app: built.app,
       store: built.store,
       webhooks: built.webhooks,
-      baseUrl: svcBase,
+      baseUrl,
     };
     services.set(name, service);
 
-    const prefix = `/${name}`;
-    const dispatch = async ({ request }: { request: Request }): Promise<Response> => {
-      const path = new URL(request.url).pathname;
-      // Strip the `/<service>` prefix — provider routes are mounted at the app root.
-      const appPath = path === prefix ? "/" : path.slice(prefix.length) || "/";
-      return service.app.fetch(await relocate(request, appPath, origin));
-    };
+    // The service owns its whole origin — request paths are already
+    // app-relative, so we hand them straight to the Hono app, no rewriting.
+    const dispatch = ({ request }: { request: Request }): Response | Promise<Response> => service.app.fetch(request);
 
-    // `/<service>/*` (sub-paths) and `/<service>` (the bare root) both route in.
-    handlers.push(http.all(`${svcBase}/*`, dispatch));
-    handlers.push(http.all(svcBase, dispatch));
-  }
+    // Match the origin root (`${baseUrl}`) and everything under it.
+    handlers.push(http.all(`${baseUrl}/*`, dispatch));
+    handlers.push(http.all(baseUrl, dispatch));
+  });
 
   return { handlers, services };
 }

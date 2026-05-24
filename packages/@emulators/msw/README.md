@@ -2,9 +2,11 @@
 
 Run [agent-emulate](https://github.com/Vinniai/agent-emulate) provider emulators
 **in-process** as [MSW](https://github.com/mswjs/msw) request handlers — no server,
-no ports, no Service Worker round-trip to a backend. Every request to
-`${baseUrl}/<service>/*` is dispatched straight through the provider's Hono app,
-reusing the exact same logic the standalone server runs.
+no ports, no Service Worker round-trip to a backend. Each provider gets **its own
+origin**, exactly like `agent-emulate start`: its own port (`http://localhost:4000`,
+`:4001`, … — base port + index) or, with `portless`, its own subdomain
+(`https://google.emulate.localhost`). Requests to that origin are dispatched straight
+through the provider's Hono app, reusing the exact same logic the standalone server runs.
 
 This is "Pattern C": the cleanest way to use agent-emulate inside unit/component
 tests where spinning up a separate server process is overkill.
@@ -27,10 +29,11 @@ import { emulateHandlers } from "@emulators/msw";
 import { googlePlugin } from "@emulators/google";
 import { stripePlugin } from "@emulators/stripe";
 
+// google → http://localhost:4000, stripe → http://localhost:4001 (base port + index).
 const { handlers, services } = emulateHandlers({
-  baseUrl: "http://localhost:4000",
   services: { google: googlePlugin, stripe: stripePlugin },
 });
+const google = services.get("google")!.baseUrl; // "http://localhost:4000"
 
 const server = setupServer(
   ...handlers,
@@ -43,7 +46,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 test("reads provider data through the in-process emulator", async () => {
-  const res = await fetch("http://localhost:4000/google/.well-known/openid-configuration");
+  const res = await fetch(`${google}/.well-known/openid-configuration`);
   expect(res.ok).toBe(true);
 
   // Reach into the live store to seed or assert provider state directly.
@@ -52,9 +55,18 @@ test("reads provider data through the in-process emulator", async () => {
 });
 ```
 
-Point your SDKs at the same `baseUrl` (`EMULATE_BASE_URL=http://localhost:4000`),
-exactly as you would with the live `agent-emulate` server — switching a suite from
-the server to in-process MSW needs no other change.
+Point your SDKs at the same per-service origin you'd use with the live
+`agent-emulate` server — switching a suite from the server to in-process MSW needs
+no other change.
+
+### Addressing: ports vs. portless
+
+```ts
+emulateHandlers({ services });                       // own port per service from 4000
+emulateHandlers({ port: 9000, services });           // start the range elsewhere
+emulateHandlers({ portless: true, services });       // https://<name>.emulate.localhost
+emulateHandlers({ baseUrls: { google: "http://localhost:8443" }, services }); // pin one
+```
 
 ## Browser (Storybook / Playwright component tests)
 
@@ -76,7 +88,7 @@ of the realistic emulator baseline:
 
 ```ts
 server.use(
-  http.get("http://localhost:4000/google/oauth2/v3/certs", () =>
+  http.get(`${google}/oauth2/v3/certs`, () =>
     HttpResponse.json({ keys: [] }, { status: 503 }),
   ),
 );
@@ -88,8 +100,10 @@ server.use(
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `services` | `Record<string, ServicePlugin>` | — | Service name → provider plugin. |
-| `baseUrl` | `string` | `http://localhost:4000` | Origin (+ optional path) the SDKs target. |
+| `services` | `Record<string, ServicePlugin>` | — | Service name → provider plugin. Mounted in order: first at the base port, next at base+1, … |
+| `port` | `number` | `4000` | Base port. Service _N_ → `http://localhost:(port + N)`, mirroring `agent-emulate start`. |
+| `portless` | `boolean` | `false` | Mount each service at `https://<name>.emulate.localhost` (mirrors `agent-emulate start --portless`). |
+| `baseUrls` | `Record<string, string>` | — | Explicit per-service origin overrides. Wins over `port` / `portless`. |
 | `serverOptions` | `Omit<ServerOptions, "baseUrl" \| "port">` | — | Per-service `createServer` options (tokens, `fallbackUser`, `multiTenant`…). |
 | `seed` | `boolean` | `true` | Run each plugin's built-in seed on startup. |
 
