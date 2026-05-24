@@ -77,3 +77,4 @@ export {
 } from "./persistence.js";
 export { type RootFallbackRoute, ROOT_FALLBACK_ROUTES, matchRootFallback } from "./root-fallback.js";
 export { type RateLimitProfile, type RateLimitState, rateLimitProfile, rateLimitHeaders } from "./rate-limit.js";
+export { activityBus, registerActivityRoutes, renderActivityCard, type ActivityEvent } from "./activity.js";

@@ -1,0 +1,81 @@
+# MSW Integration
+
+[Mock Service Worker (MSW)](https://github.com/mswjs/msw) and agent-emulate solve overlapping problems at different layers, so they compose rather than compete.
+
+| | **agent-emulate** | **MSW** |
+| --- | --- | --- |
+| What it is | A real local HTTP server (out-of-process) | In-process request interception (Service Worker in the browser; `@mswjs/interceptors` in Node) |
+| Strength | Stateful OAuth2/OIDC login, token exchange, seeded provider data, real login screens, inspector | Per-test canned responses, error/latency injection, GraphQL, request spying |
+| You point at it via | base-URL override (`EMULATE_BASE_URL`, per-service `baseUrl`) | `setupServer()` / `setupWorker()` handlers |
+
+**The rule that makes them coexist:** each request URL is owned by exactly one layer. Don't let both claim the same route.
+
+## The `@emulators/msw` adapter (in-process, no server)
+
+`@emulators/msw` turns any provider plugin into MSW request handlers that run the emulators **in-process** — no server, no ports. Every request to `${baseUrl}/<service>/*` is dispatched straight through the provider's Hono app, reusing the exact logic the standalone server runs.
+
+```bash
+pnpm add -D @emulators/msw msw @emulators/google
+```
+
+### Node (Vitest / Jest)
+
+```typescript
+import { setupServer } from 'msw/node'
+import { http, HttpResponse } from 'msw'
+import { emulateHandlers } from '@emulators/msw'
+import { googlePlugin } from '@emulators/google'
+import { stripePlugin } from '@emulators/stripe'
+
+const { handlers, services } = emulateHandlers({
+  baseUrl: 'http://localhost:4000',
+  services: { google: googlePlugin, stripe: stripePlugin },
+})
+
+const server = setupServer(
+  ...handlers,
+  // App-level mocks coexist with the emulators.
+  http.get('https://api.myapp.com/me', () => HttpResponse.json({ id: 'u_1' })),
+)
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
+```
+
+Point your SDKs at the same `baseUrl` you'd use with the live server — switching a suite from the server to in-process MSW needs no other change. The returned `services` map exposes each emulator's live `store`, so you can seed or assert provider state directly.
+
+### Browser (Storybook / component tests)
+
+```typescript
+import { setupWorker } from 'msw/browser'
+import { emulateHandlers } from '@emulators/msw'
+import { googlePlugin } from '@emulators/google'
+
+const { handlers } = emulateHandlers({ services: { google: googlePlugin } })
+export const worker = setupWorker(...handlers)
+await worker.start({ onUnhandledRequest: 'bypass' })
+```
+
+### Per-test overrides
+
+Because these are ordinary MSW handlers, `server.use(...)` overrides win for a single test — force a `429`/`500`, an empty list, or a malformed payload on top of the realistic emulator baseline:
+
+```typescript
+server.use(
+  http.get('http://localhost:4000/google/oauth2/v3/certs',
+    () => HttpResponse.json({ keys: [] }, { status: 503 })),
+)
+```
+
+## Patterns
+
+- **Layered passthrough (recommended).** Point SDKs at emulate; MSW only mocks your own app and edge cases, and passes provider traffic through (`onUnhandledRequest: 'bypass'`).
+- **MSW in front of emulate.** A handler `fetch`es the emulator and mutates the response on the way out — keep emulate's stateful data, tweak per test.
+- **emulate-as-MSW-handlers.** The `@emulators/msw` adapter above — fully in-process, ideal for unit/component tests.
+
+## When to use the live server instead
+
+Interactive OAuth **login screens** are full-page browser redirects, and MSW's Service Worker intercepts `fetch`/`XHR` — not top-level navigations. Use the standalone `agent-emulate` server for redirect-login UX; use MSW for token exchange, userinfo, and provider data APIs.
+
+See the [`@emulators/msw` README](https://github.com/Vinniai/agent-emulate/tree/main/packages/@emulators/msw) for the full option reference.

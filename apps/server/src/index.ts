@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import pc from "picocolors";
 import {
   registerFontRoutes,
+  registerActivityRoutes,
   filePersistence,
   snapshotBundle,
   restoreBundle,
@@ -48,6 +49,10 @@ async function main() {
   registerFontRoutes(parent);
   parent.use("*", cors());
 
+  // Aggregate live-activity stream across every mounted provider. Filter to one
+  // provider with `?service=<name>`. Published from the dispatcher per request.
+  registerActivityRoutes(parent);
+
   parent.get("/", (c) =>
     c.json({
       service: "emulate-server",
@@ -55,6 +60,7 @@ async function main() {
       users: tokens.length,
       inspector: `${baseUrl}/_inspector`,
       previewer: `${baseUrl}/_previewer`,
+      activity: `${baseUrl}/_activity/stream`,
       docs: "https://github.com/Vinniai/agent-emulate#readme",
     }),
   );

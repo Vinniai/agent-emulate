@@ -50,18 +50,28 @@ declare global {
 export const activityBus: ActivityBus =
   globalThis.__emulate_activity_bus__ ?? (globalThis.__emulate_activity_bus__ = new ActivityBus());
 
+// `service` pins the route to a single emulator (used when each service mounts
+// its own copy). When omitted — e.g. mounted once on the aggregate server — a
+// `?service=<name>` query param filters per request, so one stream can scope to
+// any provider without a dedicated mount.
 export function registerActivityRoutes(app: Hono<any>, service?: string): void {
   app.get("/_activity/recent.json", (c) => {
     const limit = Number(c.req.query("limit") ?? "50");
-    return c.json({ events: activityBus.recent(limit, service) });
+    const svc = service ?? c.req.query("service") ?? undefined;
+    return c.json({ events: activityBus.recent(limit, svc) });
   });
 
   app.get("/_activity/stream", (c) => {
+    const svc = service ?? c.req.query("service") ?? undefined;
+    // Hoisted so both the request-abort listener and the ReadableStream's own
+    // cancel() share one teardown — otherwise a cancelled reader (tests, fetch
+    // clients that don't abort) would leak the heartbeat interval.
+    let close = (): void => {};
     const stream = new ReadableStream({
       start(controller) {
         const enc = new TextEncoder();
         const send = (evt: ActivityEvent): void => {
-          if (service && evt.service !== service) return;
+          if (svc && evt.service !== svc) return;
           try {
             controller.enqueue(enc.encode(`data: ${JSON.stringify(evt)}\n\n`));
           } catch {
@@ -77,7 +87,9 @@ export function registerActivityRoutes(app: Hono<any>, service?: string): void {
             // closed
           }
         }, 15_000);
-        const close = (): void => {
+        // Don't let the heartbeat hold the event loop open (Node); no-op in browsers.
+        (heartbeat as { unref?: () => void }).unref?.();
+        close = (): void => {
           clearInterval(heartbeat);
           unsub();
           try {
@@ -87,6 +99,9 @@ export function registerActivityRoutes(app: Hono<any>, service?: string): void {
           }
         };
         c.req.raw.signal.addEventListener("abort", close);
+      },
+      cancel() {
+        close();
       },
     });
     return new Response(stream, {

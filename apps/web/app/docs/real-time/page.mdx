@@ -1,0 +1,59 @@
+# Activity Stream (SSE)
+
+The deployable server publishes one event per forwarded request to an aggregate [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) stream. Watch emulated traffic in real time — every query and response across every provider, including records the [Activity Simulator](/docs/simulator) pushes in.
+
+## Endpoints
+
+```bash
+# Recent events as JSON (newest first). Filter to one provider with ?service=
+curl 'http://localhost:4000/_activity/recent.json?limit=50'
+curl 'http://localhost:4000/_activity/recent.json?service=google'
+
+# Live tail — text/event-stream with a `: ping` heartbeat every 15s
+curl -N 'http://localhost:4000/_activity/stream'
+curl -N 'http://localhost:4000/_activity/stream?service=stripe'
+```
+
+## Event shape
+
+Each event is emitted as a `data:` SSE frame containing JSON:
+
+```json
+{ "ts": 1716500000000, "service": "google", "action": "GET", "entity": "/oauth2/v2/userinfo", "id": "200" }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `ts` | Epoch milliseconds |
+| `service` | Provider name (`google`, `stripe`, …) |
+| `action` | HTTP method |
+| `entity` | Prefix-stripped resource path |
+| `id` | HTTP status code |
+
+## Subscribe from the browser
+
+```js
+const es = new EventSource('http://localhost:4000/_activity/stream')
+es.onmessage = (e) => {
+  const evt = JSON.parse(e.data)
+  console.log(`${evt.service} ${evt.action} ${evt.entity} → ${evt.id}`)
+}
+```
+
+The [inspector](http://localhost:4000/_inspector) renders this as a live-updating **Live Activity** card at the top of the provider browser.
+
+## Embedding
+
+The endpoints and card are exported from [`@emulators/core`](https://github.com/Vinniai/agent-emulate/tree/main/packages/@emulators/core) for custom servers:
+
+```typescript
+import { registerActivityRoutes, renderActivityCard, activityBus } from '@emulators/core'
+
+registerActivityRoutes(app)              // mounts /_activity/recent.json + /_activity/stream
+app.get('/dashboard', (c) => c.html(renderActivityCard({ limit: 25 })))
+
+// Publish your own events onto the same bus:
+activityBus.publish({ ts: Date.now(), service: 'google', action: 'POST', entity: '/gmail/v1/messages', id: '200' })
+```
+
+A ring buffer keeps the most recent 200 events, so a freshly connected client sees recent history immediately via `/_activity/recent.json`.

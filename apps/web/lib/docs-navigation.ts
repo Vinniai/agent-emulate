@@ -6,6 +6,7 @@ export type NavItem = {
 export const allDocsPages: NavItem[] = [
   { name: "Getting Started", href: "/docs" },
   { name: "Programmatic API", href: "/docs/programmatic-api" },
+  { name: "MSW Integration", href: "/docs/msw" },
   { name: "Configuration", href: "/docs/configuration" },
   { name: "Next.js Integration", href: "/docs/nextjs" },
   { name: "Vercel API", href: "/docs/vercel" },
@@ -19,6 +20,8 @@ export const allDocsPages: NavItem[] = [
   { name: "MongoDB Atlas", href: "/docs/mongoatlas" },
   { name: "Resend", href: "/docs/resend" },
   { name: "Stripe", href: "/docs/stripe" },
+  { name: "Activity Simulator", href: "/docs/simulator" },
+  { name: "Activity Stream (SSE)", href: "/docs/real-time" },
   { name: "Authentication", href: "/docs/authentication" },
   { name: "Architecture", href: "/docs/architecture" },
 ];

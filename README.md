@@ -166,6 +166,43 @@ afterAll(() => Promise.all([github.close(), vercel.close()]))
 | `reset()` | Wipe the store and replay seed data |
 | `close()` | Shut down the HTTP server, returns a Promise |
 
+### In-process mocking with MSW (no server, no ports)
+
+For unit/component tests where a separate server process is overkill,
+[`@emulators/msw`](./packages/@emulators/msw/) turns any provider plugin into
+[Mock Service Worker](https://github.com/mswjs/msw) request handlers that run the
+emulators **in-process**. Every request to `${baseUrl}/<service>/*` is dispatched
+straight through the provider's Hono app — same logic, zero sockets:
+
+```typescript
+import { setupServer } from 'msw/node'
+import { http, HttpResponse } from 'msw'
+import { emulateHandlers } from '@emulators/msw'
+import { googlePlugin } from '@emulators/google'
+
+const { handlers, services } = emulateHandlers({
+  baseUrl: 'http://localhost:4000',
+  services: { google: googlePlugin },
+})
+
+// emulate owns the providers; ordinary MSW handlers own everything else.
+const server = setupServer(
+  ...handlers,
+  http.get('https://api.myapp.com/me', () => HttpResponse.json({ id: 'u_1' })),
+)
+server.listen({ onUnhandledRequest: 'bypass' })
+
+// Per-test overrides still win — force a 500, an empty list, a malformed payload:
+server.use(http.get('http://localhost:4000/google/oauth2/v3/certs',
+  () => HttpResponse.json({ keys: [] }, { status: 503 })))
+```
+
+agent-emulate and MSW compose at different layers — let emulate own the stateful
+OAuth dance + provider data, and use MSW for per-test edge cases and your own API.
+Interactive redirect-login screens still need the live server (no separate origin
+to navigate to in-process). See the [`@emulators/msw` README](./packages/@emulators/msw/README.md)
+for browser (`setupWorker`) usage and the full option reference.
+
 ## Configuration
 
 Configuration is optional. The CLI auto-detects config files in this order: `emulate.config.yaml` / `.yml`, `emulate.config.json`, `service-emulator.config.yaml` / `.yml`, `service-emulator.config.json`. Or pass `--seed <file>` explicitly. Run `npx agent-emulate init` to generate a starter file.
@@ -1104,6 +1141,36 @@ agent-emulate-sim run scenario.yaml --base http://localhost:4000
 
 A scenario is YAML/JSON describing streams (inbox emails, Teams/WhatsApp messages, Drive files, Calendar events, or native actions like opening GitHub issues / creating Stripe payment intents). See [`examples/inbox-stream.yaml`](./packages/@emulators/simulator/examples/inbox-stream.yaml) and the [simulator README](./packages/@emulators/simulator/README.md).
 
+## Live activity stream (SSE)
+
+The deployable server publishes one event per forwarded request to an aggregate
+[Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
+stream, so you can watch emulated traffic in real time — every query and response
+across every provider, including records the simulator pushes in:
+
+```bash
+# Recent events as JSON (newest first); filter to one provider with ?service=
+curl 'http://localhost:4000/_activity/recent.json?limit=50'
+curl 'http://localhost:4000/_activity/recent.json?service=google'
+
+# Live tail (text/event-stream, `: ping` heartbeat every 15s)
+curl -N 'http://localhost:4000/_activity/stream'
+curl -N 'http://localhost:4000/_activity/stream?service=stripe'
+```
+
+Each event is `{ ts, service, action, entity, id }` — HTTP method, prefix-stripped
+resource path, and status code. In the browser, subscribe with `EventSource`:
+
+```js
+const es = new EventSource('http://localhost:4000/_activity/stream')
+es.onmessage = (e) => console.log(JSON.parse(e.data))
+```
+
+The [inspector](http://localhost:4000/_inspector) renders this as a live-updating
+"Live Activity" card at the top of the provider browser. The endpoints are also
+available to embedders via `registerActivityRoutes(app)` and `renderActivityCard()`
+from [`@emulators/core`](./packages/@emulators/core/).
+
 ## Deployable server
 
 [`apps/server`](./apps/server/) is a single Hono app that multiplexes every emulator behind one port — drop it on a server, point dev/staging at it, run real OAuth against fake providers. It adds two production conveniences over the per-service CLI:
@@ -1125,6 +1192,7 @@ packages/
     native-kit/     # spec-driven engine for ~30 SDK-aligned REST emulators
     nango/          # multi-provider integration emulator (proxy + records)
     simulator/      # agent-emulate-sim — external live-activity driver
+    msw/            # run any provider in-process as MSW request handlers
     vercel/ github/ google/ slack/ apple/ microsoft/ okta/ aws/ resend/
     stripe/ clerk/ workos/ mongoatlas/ ...  # first-class provider services
     salesforce/ xero/ quickbooks/ hubspot/ simpro/ uptick/ + ~30 more

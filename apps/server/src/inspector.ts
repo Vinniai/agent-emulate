@@ -1,5 +1,12 @@
 import { Hono } from "hono";
-import { escapeHtml, escapeAttr, renderInspectorPage, type AppEnv, type InspectorTab } from "@emulators/core";
+import {
+  escapeHtml,
+  escapeAttr,
+  renderActivityCard,
+  renderInspectorPage,
+  type AppEnv,
+  type InspectorTab,
+} from "@emulators/core";
 import { getNangoStore } from "@emulators/nango";
 import type { ServiceApp, ServiceName } from "./dispatcher.js";
 
@@ -140,7 +147,7 @@ export function createInspectorRouter(state: InspectorState): Hono<AppEnv> {
       ]);
     }
 
-    const body = `<div class="inspector-section">
+    const body = `${renderActivityCard({ limit: 25 })}<div class="inspector-section">
   <h2>${names.length} emulated providers</h2>
   <p class="inspector-empty">Every provider is reachable direct-to-source at <code>${escapeHtml(state.baseUrl)}/&lt;provider&gt;</code>. Nango proxy mode stays available separately.</p>
   ${table(["Provider", "Collections", "Seeded rows", "Mode", ""], rows)}

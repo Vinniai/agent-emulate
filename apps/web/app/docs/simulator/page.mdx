@@ -1,0 +1,40 @@
+# Activity Simulator
+
+A static emulator answers whatever you seeded. Real systems also *change over time* — new emails arrive, issues get opened, payments settle. [`@emulators/simulator`](https://github.com/Vinniai/agent-emulate/tree/main/packages/@emulators/simulator) (the `agent-emulate-sim` CLI) is a standalone driver that turns a running deployment into a living one.
+
+It imports nothing from the emulator — it's a pure HTTP client that pushes new records and events on a schedule and lets each emulator's own webhook dispatch fire. This makes it safe to run against any deployment (local, CI, or a shared staging server).
+
+## Run a scenario
+
+```bash
+agent-emulate-sim run scenario.yaml --base http://localhost:4000
+  --once              # one tick per stream, then exit
+  --dry-run           # generate + log, no HTTP calls
+  --duration <sec>    # stop after N seconds
+```
+
+## Scenarios
+
+A scenario is YAML (or JSON) describing **streams** — sources of change that tick on an interval:
+
+```yaml
+streams:
+  - name: support-inbox
+    kind: gmail.message       # new inbound emails
+    every: 10s
+    count: 1
+  - name: new-issues
+    kind: github.issue        # open issues on a repo
+    every: 30s
+  - name: payments
+    kind: stripe.payment_intent  # create + settle payment intents
+    every: 1m
+```
+
+Built-in stream kinds cover inbox emails, Teams/WhatsApp messages, Drive files, Calendar events, and native actions such as opening GitHub issues or creating Stripe payment intents. Each tick performs the real API call against your deployment, so downstream webhooks, list endpoints, and the [activity stream](/docs/real-time) all reflect the new state.
+
+See [`examples/inbox-stream.yaml`](https://github.com/Vinniai/agent-emulate/blob/main/packages/@emulators/simulator/examples/inbox-stream.yaml) and the [simulator README](https://github.com/Vinniai/agent-emulate/tree/main/packages/@emulators/simulator) for the full scenario schema and the list of stream kinds.
+
+## Watching it live
+
+Pair the simulator with the [live activity stream](/docs/real-time): start `agent-emulate-sim`, then tail `/_activity/stream` (or open the inspector's **Live Activity** card) to watch records flow in as they're created.

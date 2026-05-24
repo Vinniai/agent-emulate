@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import {
+  activityBus,
   createServer,
   matchRootFallback,
   type AppKeyResolver,
@@ -198,6 +199,7 @@ export function mountDispatcher(parent: Hono<AppEnv>, apps: Map<ServiceName, Ser
     const stripped = url.pathname.slice(`/${serviceName}`.length) || "/";
     let response = await forwardToService(sa, c.req.raw, stripped);
     response = await rewriteResponse(response, `/${serviceName}`);
+    publishActivity(serviceName, c.req.method, stripped, response.status);
     return response;
   });
 
@@ -211,7 +213,23 @@ export function mountDispatcher(parent: Hono<AppEnv>, apps: Map<ServiceName, Ser
     if (!service) return next();
     const sa = apps.get(service as ServiceName);
     if (!sa) return next();
-    return forwardToService(sa, c.req.raw);
+    const response = await forwardToService(sa, c.req.raw);
+    publishActivity(service, c.req.method, url.pathname, response.status);
+    return response;
+  });
+}
+
+// Emit one activity event per forwarded request so the aggregate `/_activity`
+// stream reflects live emulated traffic across every provider. `entity` is the
+// (prefix-stripped) resource path; `id` is the HTTP status. publish() never
+// throws, so this stays out of the response's critical path.
+function publishActivity(service: string, method: string, path: string, status: number): void {
+  activityBus.publish({
+    ts: Date.now(),
+    service,
+    action: method,
+    entity: path,
+    id: String(status),
   });
 }
 
