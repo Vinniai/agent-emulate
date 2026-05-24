@@ -1,6 +1,19 @@
-import type { AppEnv } from "@emulators/core";
+import type { AppEnv, WebhookDispatcher } from "@emulators/core";
 import type { Hono } from "hono";
 import type { WorkOSStoreFacade } from "../store.js";
+import { emitWorkOSEvent } from "./events.js";
+
+function membershipObject(
+  m: { id: string; user_id: string; organization_id: string; role: { slug: string }; status: string; created_at: string; updated_at: string },
+  orgName: string,
+) {
+  return {
+    ...m,
+    object: "organization_membership",
+    organizationId: m.organization_id,
+    organizationName: orgName,
+  };
+}
 
 function userObject(u: {
   id: string;
@@ -25,12 +38,36 @@ function userObject(u: {
   };
 }
 
-export function userRoutes(app: Hono<AppEnv>, ws: WorkOSStoreFacade): void {
+export function userRoutes(app: Hono<AppEnv>, ws: WorkOSStoreFacade, webhooks: WebhookDispatcher): void {
   // List users (WorkOS SDK: userManagement.listUsers) — optional ?email= filter
   app.get("/user_management/users", (c) => {
     const email = c.req.query("email");
     const users = ws.allUsers().filter((u) => (email ? u.email === email : true));
     return c.json({ data: users.map(userObject), list_metadata: { after: null, before: null } });
+  });
+
+  // Create user (WorkOS SDK: userManagement.createUser)
+  app.post("/user_management/users", async (c) => {
+    const body = await c.req
+      .json<{
+        email?: string;
+        password?: string;
+        first_name?: string;
+        last_name?: string;
+        email_verified?: boolean;
+      }>()
+      .catch(() => ({}) as { email?: string; password?: string; first_name?: string; last_name?: string; email_verified?: boolean });
+    if (!body.email) return c.json({ code: "validation_error", message: "email is required" }, 422);
+    const user = ws.insertUser({
+      email: body.email,
+      password: body.password,
+      first_name: body.first_name ?? null,
+      last_name: body.last_name ?? null,
+      email_verified: body.email_verified,
+    });
+    const payload = userObject(user);
+    emitWorkOSEvent(webhooks, "user.created", payload);
+    return c.json(payload, 201);
   });
 
   // Get single user
@@ -51,32 +88,58 @@ export function userRoutes(app: Hono<AppEnv>, ws: WorkOSStoreFacade): void {
     }>();
     const updated = ws.updateUser(c.req.param("userId"), patch);
     if (!updated) return c.json({ code: "entity_not_found", message: "User not found" }, 404);
-    return c.json(userObject(updated));
+    const payload = userObject(updated);
+    emitWorkOSEvent(webhooks, "user.updated", payload);
+    return c.json(payload);
   });
 
   // Delete user
   app.delete("/user_management/users/:userId", (c) => {
-    const ok = ws.deleteUser(c.req.param("userId"));
-    if (!ok) return c.json({ code: "entity_not_found", message: "User not found" }, 404);
+    const userId = c.req.param("userId");
+    // Capture the user before deletion so the event payload carries its identity.
+    const existing = ws.getUser(userId);
+    const ok = ws.deleteUser(userId);
+    if (!ok || !existing) return c.json({ code: "entity_not_found", message: "User not found" }, 404);
+    emitWorkOSEvent(webhooks, "user.deleted", userObject(existing));
     return c.body(null, 204);
+  });
+
+  // Create an organization membership (WorkOS SDK: userManagement.createOrganizationMembership)
+  app.post("/user_management/organization_memberships", async (c) => {
+    const body = await c.req
+      .json<{ user_id?: string; organization_id?: string; role_slug?: string }>()
+      .catch(() => ({}) as { user_id?: string; organization_id?: string; role_slug?: string });
+    if (!body.user_id || !body.organization_id) {
+      return c.json({ code: "validation_error", message: "user_id and organization_id are required" }, 422);
+    }
+    if (!ws.getUser(body.user_id)) return c.json({ code: "entity_not_found", message: "User not found" }, 404);
+    const org = ws.getOrg(body.organization_id);
+    if (!org) return c.json({ code: "entity_not_found", message: "Organization not found" }, 404);
+    const m = ws.insertMembership(body.user_id, body.organization_id, body.role_slug ?? "member");
+    const payload = membershipObject(m, org.name);
+    emitWorkOSEvent(webhooks, "organization_membership.created", payload);
+    return c.json(payload, 201);
   });
 
   // Get single organization membership by id
   app.get("/user_management/organization_memberships/:membershipId", (c) => {
     const m = ws.getMembership(c.req.param("membershipId"));
     if (!m) return c.json({ code: "entity_not_found", message: "Membership not found" }, 404);
-    return c.json({
-      ...m,
-      object: "organization_membership",
-      organizationId: m.organization_id,
-      organizationName: ws.getOrg(m.organization_id)?.name ?? m.organization_id,
-    });
+    return c.json(membershipObject(m, ws.getOrg(m.organization_id)?.name ?? m.organization_id));
   });
 
   // Delete (deactivate) an organization membership
   app.delete("/user_management/organization_memberships/:membershipId", (c) => {
-    const ok = ws.deactivateMembership(c.req.param("membershipId"));
-    if (!ok) return c.json({ code: "entity_not_found", message: "Membership not found" }, 404);
+    const membershipId = c.req.param("membershipId");
+    // Capture the membership before deactivating so the event carries its identity.
+    const existing = ws.getMembership(membershipId);
+    const ok = ws.deactivateMembership(membershipId);
+    if (!ok || !existing) return c.json({ code: "entity_not_found", message: "Membership not found" }, 404);
+    emitWorkOSEvent(
+      webhooks,
+      "organization_membership.deleted",
+      membershipObject({ ...existing, status: "inactive" }, ws.getOrg(existing.organization_id)?.name ?? existing.organization_id),
+    );
     return c.body(null, 204);
   });
 

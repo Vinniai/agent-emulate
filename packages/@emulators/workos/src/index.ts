@@ -139,8 +139,8 @@ export const workosPlugin: ServicePlugin = {
     // stay open so a token can still be obtained; only the management
     // surface below is gated. Off by default so smoke tests/demos are green.
     app.use("/user_management/*", requireAuthWhen("EMULATE_WORKOS_REQUIRE_AUTH", "EMULATE_REQUIRE_AUTH"));
-    userRoutes(app, ws);
-    organizationRoutes(app, ws);
+    userRoutes(app, ws, webhooks);
+    organizationRoutes(app, ws, webhooks);
     sessionRoutes(app, ws);
     invitationRoutes(app, ws, webhooks);
     webhookRoutes(app);
