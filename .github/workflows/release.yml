@@ -44,10 +44,8 @@ jobs:
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
-    environment: Release
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,6 +58,7 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -68,12 +67,14 @@ jobs:
         run: pnpm build
 
       - name: Publish packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           LOCAL_VERSION="${{ needs.check-release.outputs.version }}"
           FAILED=""
 
           # pnpm pack resolves workspace:* protocols in the tarball;
-          # npm publish handles OIDC trusted-publisher auth.
+          # npm publish authenticates via the NPM_TOKEN repo secret.
           publish_pkg() {
             local dir="$1" name="$2"
             REGISTRY_VERSION=$(npm view "$name" version 2>/dev/null || echo "0.0.0")
@@ -83,7 +84,7 @@ jobs:
             fi
             echo "Publishing $name@$LOCAL_VERSION..."
             TARBALL=$(cd "$dir" && pnpm pack --pack-destination /tmp | tail -1)
-            if ! npm publish "$TARBALL" --provenance --access public; then
+            if ! npm publish "$TARBALL" --access public; then
               FAILED="$FAILED $name"
             fi
           }
