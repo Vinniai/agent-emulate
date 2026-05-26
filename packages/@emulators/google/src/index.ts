@@ -87,10 +87,17 @@ export interface GoogleSeedCalendarEvent {
   summary?: string;
   description?: string;
   location?: string;
+  // Internal storage fields. When present these win over the convenience
+  // `start`/`end` below.
   start_date_time?: string;
   start_date?: string;
   end_date_time?: string;
   end_date?: string;
+  // Convenience shapes seed authors actually write: a flat ISO string
+  // ("2026-04-14T07:30:00+11:00" → timed, "2026-04-14" → all-day) or the
+  // real Google nested object. Normalized into the fields above on load.
+  start?: string | { dateTime?: string; date?: string };
+  end?: string | { dateTime?: string; date?: string };
   attendees?: Array<{
     email: string;
     display_name?: string;
@@ -439,6 +446,27 @@ function seedCalendars(store: Store, calendars: GoogleSeedCalendar[], fallbackEm
   }
 }
 
+// Accept the date shapes seed authors actually write and resolve them to the
+// internal dateTime/date split. Explicit snake_case fields win; otherwise a
+// flat string splits on whether it carries a time ("T"), and a nested Google
+// object passes through. Mirrors the real Calendar API's start/end union.
+function normalizeSeedDate(
+  flat: string | { dateTime?: string; date?: string } | undefined,
+  explicitDateTime: string | undefined,
+  explicitDate: string | undefined,
+): { dateTime: string | null; date: string | null } {
+  if (explicitDateTime || explicitDate) {
+    return { dateTime: explicitDateTime ?? null, date: explicitDate ?? null };
+  }
+  if (typeof flat === "string") {
+    return flat.includes("T") ? { dateTime: flat, date: null } : { dateTime: null, date: flat };
+  }
+  if (flat && typeof flat === "object") {
+    return { dateTime: flat.dateTime ?? null, date: flat.date ?? null };
+  }
+  return { dateTime: null, date: null };
+}
+
 function seedCalendarEvents(store: Store, events: GoogleSeedCalendarEvent[], fallbackEmail: string): void {
   const gs = getGoogleStore(store);
 
@@ -447,6 +475,8 @@ function seedCalendarEvents(store: Store, events: GoogleSeedCalendarEvent[], fal
     if (event.id && gs.calendarEvents.findBy("google_id", event.id).some((e) => e.user_email === userEmail)) {
       continue;
     }
+    const start = normalizeSeedDate(event.start, event.start_date_time, event.start_date);
+    const end = normalizeSeedDate(event.end, event.end_date_time, event.end_date);
     createCalendarEventRecord(gs, {
       google_id: event.id,
       user_email: userEmail,
@@ -455,10 +485,10 @@ function seedCalendarEvents(store: Store, events: GoogleSeedCalendarEvent[], fal
       summary: event.summary,
       description: event.description ?? null,
       location: event.location ?? null,
-      start_date_time: event.start_date_time ?? null,
-      start_date: event.start_date ?? null,
-      end_date_time: event.end_date_time ?? null,
-      end_date: event.end_date ?? null,
+      start_date_time: start.dateTime,
+      start_date: start.date,
+      end_date_time: end.dateTime,
+      end_date: end.date,
       attendees: (event.attendees ?? []).map((attendee) => ({
         email: attendee.email,
         display_name: attendee.display_name ?? null,
