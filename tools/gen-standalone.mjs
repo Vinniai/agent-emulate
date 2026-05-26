@@ -35,7 +35,7 @@ function scaffold(name, { description, extraDeps = {} }) {
     JSON.stringify(
       {
         name: `@emulators/${name}`,
-        version: "0.5.0",
+        version: "0.1.0",
         license: "Apache-2.0",
         type: "module",
         main: "./dist/index.js",

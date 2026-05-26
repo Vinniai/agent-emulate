@@ -54,7 +54,7 @@ Releases are manual, single-PR affairs. The maintainer controls the changelog vo
 
 To prepare a release:
 
-1. Create a branch (e.g. `prepare-v0.5.0`)
+1. Create a branch (e.g. `prepare-v0.1.0`)
 2. Bump the version in `packages/emulate/package.json`
 3. Run `pnpm sync-versions` to update all `@emulators/*` packages
 4. Write the changelog entry in `CHANGELOG.md`, wrapped in `<!-- release:start -->` and `<!-- release:end -->` markers
