@@ -77,30 +77,50 @@ function card(login: LoginPreview, theme: EmuTheme, src: string): string {
 </section>`;
 }
 
+// ElevenLabs UI neutral-dark tokens (OKLCH), mirroring @emulators/core ui.ts so
+// the previewer matches the rest of the control plane. The iframe wells stay
+// light — they render real provider login pages, which is the point.
 const PAGE_CSS = `
+@font-face{
+  font-family:'Geist';font-style:normal;font-weight:100 900;font-display:swap;
+  src:url('/_emulate/fonts/geist-sans.woff2') format('woff2');
+}
+:root{
+  color-scheme:dark;
+  --bg:oklch(0.145 0 0);--fg:oklch(0.985 0 0);--card:oklch(0.205 0 0);
+  --elevated:oklch(0.269 0 0);--muted-fg:oklch(0.708 0 0);--faint-fg:oklch(0.556 0 0);
+  --border:oklch(1 0 0 / 10%);--border-strong:oklch(1 0 0 / 16%);
+  --primary:oklch(0.922 0 0);--primary-fg:oklch(0.205 0 0);
+  --radius:0.625rem;--radius-sm:0.375rem;
+  --font-sans:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#000;color:#33ff00;min-height:100vh;-webkit-font-smoothing:antialiased;}
-.top{border-bottom:1px solid #0a3300;padding:18px 24px;}
-.top h1{font-size:1.25rem;font-weight:700;color:#33ff00;}
-.top p{color:#1a8c00;font-size:.8125rem;margin-top:4px;max-width:760px;line-height:1.5;}
-.top .badge{display:inline-block;background:#33ff00;color:#000;font-size:.625rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;padding:24px;}
-.card{border:1px solid #0a3300;border-radius:10px;overflow:hidden;background:#020;}
-.card-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #0a3300;}
-.card-head h2{font-size:1rem;font-weight:700;color:#33ff00;}
-.scheme{font-size:.625rem;text-transform:uppercase;letter-spacing:.06em;color:#1a8c00;border:1px solid #0a3300;border-radius:4px;padding:1px 6px;}
-.open{margin-left:auto;color:#1a8c00;font-size:.75rem;text-decoration:none;}
-.open:hover{color:#33ff00;}
-.meta{padding:8px 16px 0;font-size:.6875rem;color:#1a8c00;}
-.meta code{color:#33ff00;}
-.swatches{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px 12px;}
-.sw{display:flex;align-items:center;gap:5px;font-size:.625rem;color:#1a8c00;}
-.sw-chip{width:14px;height:14px;border-radius:3px;border:1px solid #0a3300;flex-shrink:0;}
-.sw-val{color:#116600;}
-.frame-wrap{height:340px;overflow:hidden;border-top:1px solid #0a3300;background:#fff;position:relative;}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--fg);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+.top{border-bottom:1px solid var(--border);padding:1.5rem 1.5rem;}
+.top h1{font-size:1.5rem;font-weight:600;color:var(--fg);letter-spacing:-0.02em;}
+.top p{color:var(--muted-fg);font-size:.875rem;margin-top:.5rem;max-width:70ch;line-height:1.6;}
+.top p code{font-family:var(--font-mono);color:var(--fg);font-size:.8125rem;}
+.top .badge{display:inline-flex;align-items:center;gap:.25rem;background:var(--primary);color:var(--primary-fg);font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:999px;margin-left:.5rem;vertical-align:middle;}
+.top .badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:1.5rem;padding:1.5rem;}
+.card{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--card);}
+.card-head{display:flex;align-items:center;gap:.625rem;padding:.875rem 1rem;border-bottom:1px solid var(--border);}
+.card-head h2{font-size:1rem;font-weight:600;color:var(--fg);letter-spacing:-0.01em;}
+.scheme{font-size:.6875rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-fg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 7px;}
+.open{margin-left:auto;color:var(--muted-fg);font-size:.8125rem;text-decoration:none;transition:color .15s;}
+.open:hover{color:var(--fg);}
+.meta{padding:.625rem 1rem 0;font-size:.75rem;color:var(--muted-fg);}
+.meta code{font-family:var(--font-mono);color:var(--fg);}
+.swatches{display:flex;flex-wrap:wrap;gap:.625rem;padding:.75rem 1rem 1rem;}
+.sw{display:flex;align-items:center;gap:.375rem;font-size:.6875rem;color:var(--muted-fg);}
+.sw-chip{width:14px;height:14px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);flex-shrink:0;}
+.sw-val{font-family:var(--font-mono);color:var(--faint-fg);}
+.frame-wrap{height:340px;overflow:hidden;border-top:1px solid var(--border);background:#fff;position:relative;}
 .frame{width:166.66%;height:566px;border:0;transform:scale(.6);transform-origin:top left;}
-.foot{text-align:center;padding:20px;color:#0a3300;font-size:.6875rem;}
-.foot a{color:#1a8c00;text-decoration:none;}
+.foot{text-align:center;padding:1.5rem;color:var(--faint-fg);font-size:.75rem;}
+.foot a{color:var(--muted-fg);text-decoration:none;transition:color .15s;}
+.foot a:hover{color:var(--fg);}
 `;
 
 export function createPreviewerRouter(state: PreviewerState): Hono<AppEnv> {

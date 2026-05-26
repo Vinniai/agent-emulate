@@ -277,6 +277,16 @@ export function sessionRoutes(app: Hono<AppEnv>, baseUrl: string, ns: NangoStore
           organizationId: session.orgId,
           userId: session.userId,
         },
+        // Mirror the org/user identity into `tags` (lowercase snake_case, the
+        // canonical filter keys — see ORG_SEED in __tests__/helpers.ts) so the
+        // connection list endpoint can scope server-side:
+        //   GET /connections?tags[organization_id]=<workos org id>
+        // `metadata` stays camelCase for backward compatibility; tags is what
+        // the list filter (connections.ts) matches on.
+        tags: {
+          ...(session.orgId ? { organization_id: session.orgId } : {}),
+          ...(session.userId ? { end_user_id: session.userId } : {}),
+        },
         created_at: now,
         updated_at: now,
       });

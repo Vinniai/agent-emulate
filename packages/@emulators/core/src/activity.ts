@@ -143,14 +143,14 @@ function activityRowHtml(e: ActivityEvent, idx: number): string {
   const detailsId = `act-d-${e.ts}-${idx}`;
   const hasData = data != null && typeof data === "object";
   return `<tr data-ts="${e.ts}">
-  <td style="font-family:monospace;color:#888;font-size:.75rem;white-space:nowrap">${hh}:${mm}:${ss}</td>
+  <td class="act-mono">${hh}:${mm}:${ss}</td>
   <td><span class="badge badge-requested">${escapeHtml(e.service)}</span></td>
   <td><span class="badge badge-granted">${escapeHtml(e.action)}</span></td>
   <td style="white-space:nowrap">${escapeHtml(e.entity)}</td>
-  <td style="font-family:monospace;font-size:.75rem;white-space:nowrap">${escapeHtml(e.id)}</td>
-  <td style="font-size:.75rem;color:#555">${escapeHtml(summary)}</td>
-  <td>${hasData ? `<button type="button" onclick="var el=document.getElementById('${detailsId}');el.style.display=el.style.display==='table-row'?'none':'table-row'" style="font-size:.7rem;padding:2px 6px;cursor:pointer">JSON</button>` : ""}</td>
-</tr>${hasData ? `<tr id="${detailsId}" style="display:none"><td colspan="7" style="background:#fafafa;padding:6px 10px"><pre style="margin:0;font-size:.7rem;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto">${escapeHtml(JSON.stringify(data, null, 2))}</pre></td></tr>` : ""}`;
+  <td class="act-mono">${escapeHtml(e.id)}</td>
+  <td class="act-fields">${escapeHtml(summary)}</td>
+  <td>${hasData ? `<button type="button" class="act-json-btn" onclick="var el=document.getElementById('${detailsId}');el.style.display=el.style.display==='table-row'?'none':'table-row'">JSON</button>` : ""}</td>
+</tr>${hasData ? `<tr id="${detailsId}" style="display:none"><td colspan="7" class="act-detail-cell"><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre></td></tr>` : ""}`;
 }
 
 export function renderActivityCard(opts: { service?: string; limit?: number } = {}): string {
@@ -161,10 +161,10 @@ export function renderActivityCard(opts: { service?: string; limit?: number } = 
   return `
 <div class="s-card" style="margin-bottom:16px">
   <div class="s-card-header">
-    <div class="s-icon" style="background:#10b981">●</div>
+    <span class="act-pulse" aria-hidden="true"></span>
     <div>
       <div class="s-title">Live Activity</div>
-      <div class="s-subtitle"><span id="act-status">connecting…</span> · <span id="act-count">${initial.length}</span> recent events</div>
+      <div class="s-subtitle"><span id="act-status" class="act-status">connecting…</span> · <span id="act-count">${initial.length}</span> recent events</div>
     </div>
   </div>
   <div class="inspector-section">
@@ -182,8 +182,8 @@ export function renderActivityCard(opts: { service?: string; limit?: number } = 
   var status = document.getElementById('act-status');
   var countEl = document.getElementById('act-count');
   var es = new EventSource('/_activity/stream');
-  es.onopen = function(){ status.textContent = 'live'; status.style.color = '#10b981'; };
-  es.onerror = function(){ status.textContent = 'reconnecting…'; status.style.color = '#ef4444'; };
+  es.onopen = function(){ status.textContent = 'live'; status.className = 'act-status is-live'; };
+  es.onerror = function(){ status.textContent = 'reconnecting…'; status.className = 'act-status is-error'; };
   function pad(n){ return String(n).padStart(2,'0'); }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
   function summarize(d){
@@ -217,25 +217,25 @@ export function renderActivityCard(opts: { service?: string; limit?: number } = 
       var detailsId = 'act-d-' + e.ts + '-live-' + (seq++);
       var row = document.createElement('tr');
       row.setAttribute('data-ts', e.ts);
-      var btn = hasData ? '<button type="button" onclick="var el=document.getElementById(\\''+detailsId+'\\');el.style.display=el.style.display===\\'table-row\\'?\\'none\\':\\'table-row\\'" style="font-size:.7rem;padding:2px 6px;cursor:pointer">JSON</button>' : '';
+      var btn = hasData ? '<button type="button" class="act-json-btn" onclick="var el=document.getElementById(\\''+detailsId+'\\');el.style.display=el.style.display===\\'table-row\\'?\\'none\\':\\'table-row\\'">JSON</button>' : '';
       row.innerHTML =
-        '<td style="font-family:monospace;color:#888;font-size:.75rem;white-space:nowrap">' + pad(t.getHours())+':'+pad(t.getMinutes())+':'+pad(t.getSeconds()) + '</td>' +
+        '<td class="act-mono">' + pad(t.getHours())+':'+pad(t.getMinutes())+':'+pad(t.getSeconds()) + '</td>' +
         '<td><span class="badge badge-requested">' + esc(e.service) + '</span></td>' +
         '<td><span class="badge badge-granted">' + esc(e.action) + '</span></td>' +
         '<td style="white-space:nowrap">' + esc(e.entity) + '</td>' +
-        '<td style="font-family:monospace;font-size:.75rem;white-space:nowrap">' + esc(e.id) + '</td>' +
-        '<td style="font-size:.75rem;color:#555">' + esc(summarize(data)) + '</td>' +
+        '<td class="act-mono">' + esc(e.id) + '</td>' +
+        '<td class="act-fields">' + esc(summarize(data)) + '</td>' +
         '<td>' + btn + '</td>';
-      row.style.background = '#ecfdf5';
+      row.className = 'act-row-new';
       tbody.insertBefore(row, tbody.firstChild);
       if (hasData) {
         var dr = document.createElement('tr');
         dr.id = detailsId;
         dr.style.display = 'none';
-        dr.innerHTML = '<td colspan="7" style="background:#fafafa;padding:6px 10px"><pre style="margin:0;font-size:.7rem;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto">' + esc(JSON.stringify(data, null, 2)) + '</pre></td>';
+        dr.innerHTML = '<td colspan="7" class="act-detail-cell"><pre>' + esc(JSON.stringify(data, null, 2)) + '</pre></td>';
         tbody.insertBefore(dr, row.nextSibling);
       }
-      setTimeout(function(){ row.style.transition='background .8s'; row.style.background=''; }, 50);
+      setTimeout(function(){ row.className=''; }, 50);
       // Cap: count main rows (those with data-ts), trim oldest pair
       var mains = tbody.querySelectorAll('tr[data-ts]');
       while (mains.length > max) {
