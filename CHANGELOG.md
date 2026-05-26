@@ -1,8 +1,22 @@
 # Changelog
 
-## 0.2.0
+## 0.3.0
 
 <!-- release:start -->
+Developer-experience release that makes the CLI self-explanatory for agents and fixes provider-themed pages that rendered unreadable text.
+
+### Improvements
+
+- **Guided CLI help** — `agent-emulate --help` now walks through the whole workflow: seeding data from a `<service>:` config key, scaffolding with `init`, driving live activity with `agent-emulate-sim`, the auth and base-URL options, and where to inspect traffic. The `start`, `init` and `list` commands each carry focused examples and notes.
+- **Categorized service list** — `agent-emulate list` groups services (identity & SSO, platforms & cloud, payments & messaging, integrations & field service) and prints an enable-and-seed cheat sheet, so it reads as a menu rather than a flat dump.
+
+### Bug Fixes
+
+- **Readable provider themes** — pages styled after a provider (Google, Vercel, Clerk, Stripe and the rest) re-skinned individual elements but left the rest of the page on the default dark palette, so light themes painted near-white text on white. Themes now redefine the underlying design-token layer, so every page (including the inspector and settings views) recolors correctly and keeps accessible contrast.
+<!-- release:end -->
+
+## 0.2.0
+
 Minor release that fills out the WorkOS emulator into a full tenant model and lets Nango connections scope by organization, so a downstream sync can mirror orgs, users and integrations from one consistent identity.
 
 ### New Features
@@ -10,7 +24,6 @@ Minor release that fills out the WorkOS emulator into a full tenant model and le
 - **WorkOS organizations, users & memberships** — full User Management CRUD for organizations, users, organization memberships, invitations and sessions, alongside the existing AuthKit/SSO sign-in surface.
 - **WorkOS lifecycle webhook events** — creating, updating or deleting through the management API now emits a WorkOS-shaped event (`organization.created`, `user.created` / `updated` / `deleted`, `organization_membership.created` / `deleted`) using the real `{ id, event, data, created_at }` envelope. Delivery is best-effort and never breaks the API call that triggered it. A new `POST /webhooks/test` endpoint delivers a signed test event with an HMAC `workos-signature` header.
 - **Organization-scoped Nango connections** — connections linked through a connect session are now tagged with `organization_id` and `end_user_id`, and the connection list can be filtered server-side with `GET /connections?tags[organization_id]=<org>`. `metadata` keeps its camelCase shape for backward compatibility.
-<!-- release:end -->
 
 ## 0.1.1
 

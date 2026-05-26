@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { startCommand } from "./commands/start.js";
 import { initCommand } from "./commands/init.js";
 import { listCommand } from "./commands/list.js";
+import { ROOT_HELP, START_HELP, INIT_HELP, LIST_HELP } from "./help.js";
 
 declare const PKG_VERSION: string;
 const pkg = { version: PKG_VERSION };
@@ -13,7 +14,8 @@ const program = new Command();
 program
   .name("agent-emulate")
   .description("Local drop-in replacement services for CI and no-network sandboxes")
-  .version(pkg.version);
+  .version(pkg.version)
+  .addHelpText("after", ROOT_HELP);
 
 program
   .command("start", { isDefault: true })
@@ -23,6 +25,7 @@ program
   .option("--seed <file>", "Path to seed config file")
   .option("--base-url <url>", "Override advertised base URL (supports {service} template)")
   .option("--portless", "Serve over HTTPS via portless (auto-registers aliases)")
+  .addHelpText("after", START_HELP)
   .action(async (opts) => {
     const port = parseInt(opts.port, 10);
     if (Number.isNaN(port) || port < 1 || port > 65535) {
@@ -42,6 +45,7 @@ program
   .command("init")
   .description("Generate a starter config file")
   .option("-s, --service <service>", "Service to generate config for", "all")
+  .addHelpText("after", INIT_HELP)
   .action((opts) => {
     initCommand({ service: opts.service });
   });
@@ -50,6 +54,7 @@ program
   .command("list")
   .alias("list-services")
   .description("List available services")
+  .addHelpText("after", LIST_HELP)
   .action(() => {
     listCommand();
   });

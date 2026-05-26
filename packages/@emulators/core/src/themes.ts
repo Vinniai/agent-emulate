@@ -262,30 +262,46 @@ export function getTheme(service?: string): EmuTheme {
 }
 
 /**
- * CSS that overrides the base (terminal-green) stylesheet so the login/consent
- * card adopts the provider's palette. Returns "" for the default theme so
- * unthemed pages render exactly as before.
+ * CSS that re-skins a page in a provider's palette. Returns "" for the default
+ * theme so the control plane renders straight from the base stylesheet in ui.ts.
+ *
+ * The base stylesheet (ui.ts) drives every element off a `:root` token layer
+ * (--bg, --fg, --primary, --muted-fg, ...) whose defaults are a dark scheme.
+ * Rather than re-color individual selectors (which leaves anything not listed —
+ * e.g. inspector and settings pages — showing the dark defaults, so light
+ * themes paint near-white text on white), we redefine those tokens from the
+ * theme. head() injects this block after the base stylesheet, so for matching
+ * `:root` specificity it wins by document order and the whole page recolors.
  */
 export function themeOverrideCss(theme: EmuTheme): string {
   if (theme.slug === "default") return "";
+  const light = theme.scheme === "light";
+  // Provider reds are tuned for dark surfaces; on light themes use an accessible
+  // crimson so error text keeps a 4.5:1 contrast against white.
+  const danger = light ? "#b42318" : "oklch(0.704 0.191 22.216)";
   return `
-body{background:${theme.bg};color:${theme.text};font-family:${theme.font};}
-.emu-bar{background:${theme.scheme === "dark" ? "#000" : "#1b1b1f"};border-bottom-color:rgba(255,255,255,.08);color:#ffd166;}
-.emu-bar-title{color:#fff;font-family:${theme.font};}
-.emu-bar-links a{color:#bdbdbd;}
-.emu-bar-links a:hover{color:#fff;}
-.content-inner{background:${theme.surface};border:1px solid ${theme.border};border-radius:${theme.radius};padding:32px 28px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
-.card-title{color:${theme.text};font-family:${theme.font};font-weight:600;}
-.card-subtitle{color:${theme.muted};}
-.user-btn{background:${theme.surface};border:1px solid ${theme.border};color:${theme.text};border-radius:${theme.radius};}
-.user-btn:hover{border-color:${theme.accent};background:${theme.scheme === "dark" ? "rgba(255,255,255,.04)" : "rgba(0,0,0,.02)"};}
-.avatar{background:${theme.accent};color:${theme.accentText};font-family:${theme.font};}
-.user-login{color:${theme.text};}
-.user-meta{color:${theme.muted};}
-.user-email{color:${theme.muted};opacity:.8;}
-.powered-by{color:${theme.muted};}
-.powered-by a{color:${theme.accent};}
-.error-title{font-family:${theme.font};}
-.error-msg{color:${theme.muted};}
+:root{
+  color-scheme:${theme.scheme};
+  --bg:${theme.bg};
+  --fg:${theme.text};
+  --card:${theme.surface};
+  --elevated:color-mix(in srgb,${theme.text} 10%,${theme.surface});
+  --muted:color-mix(in srgb,${theme.text} 7%,${theme.surface});
+  --muted-fg:${theme.muted};
+  --faint-fg:${theme.muted};
+  --border:${theme.border};
+  --border-strong:color-mix(in srgb,${theme.text} 24%,transparent);
+  --ring:${theme.accent};
+  --primary:${theme.accent};
+  --primary-fg:${theme.accentText};
+  --danger:${danger};
+  --font-sans:${theme.font};
+  --radius:${theme.radius};
+  --radius-sm:${theme.radius};
+  --radius-lg:${theme.radius};
+}
+.content-inner{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:32px 28px;${light ? "box-shadow:0 1px 3px rgba(0,0,0,.08);" : ""}}
+.avatar{background:var(--primary);color:var(--primary-fg);}
+.powered-by a{color:var(--primary);}
 `.trim();
 }
