@@ -22,6 +22,21 @@ Do not use emojis anywhere in this repository (code, comments, output, docs).
 
 Never use `--` as a dash in prose, comments, or user-facing output. Use an em dash (\u2014) when a dash is needed, but prefer rephrasing to avoid dashes entirely. The only exception is CLI flags (e.g. `--port`).
 
+## Simpro Swagger Spec
+
+`documentation/simpro-swagger.json` is the trimmed, runtime-only Simpro spec. It keeps only the fields the spec-fallback emulator reads (`paths`, the HTTP method keys, success-response schemas `200`/`201`/`204`, and `definitions` reduced to `$ref`/`type`/`format`/`enum`/`items`/`properties`/`example`/`default`). Summaries, parameters, descriptions, non-2xx responses, and top-level vendor metadata are stripped, taking the file from about 25 MB to under 1 MB. The full 1435-operation path/method surface is preserved.
+
+The build copies this file into each package's `dist/`, so trimming the source shrinks the published tarballs with no config change.
+
+If you re-import a fresh full vendor spec, re-trim it in place and regenerate the route list:
+
+```bash
+pnpm trim:simpro-swagger            # node tools/trim-simpro-swagger.mjs documentation/simpro-swagger.json
+node tools/gen-simpro-routes.mjs    # regenerate examples/.../simpro-routes.generated.ts
+```
+
+The trimmer is idempotent, so running it on an already-trimmed spec is a no-op.
+
 ## Emulator UI Design System
 
 All emulator UIs (inspector pages, OAuth flows, checkout pages, inboxes, etc.) must use the shared design system in `packages/@emulators/core/src/ui.ts`. Never write inline HTML with custom `<style>` tags or standalone `<!DOCTYPE html>` templates in individual emulator packages.

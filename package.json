@@ -12,6 +12,7 @@
     "audit:sources": "node tools/audit-emulator-sources.mjs",
     "discover:uptick": "node tools/discover-uptick-api.mjs",
     "search:uptick-public-code": "node tools/search-uptick-public-code.mjs",
+    "trim:simpro-swagger": "node tools/trim-simpro-swagger.mjs documentation/simpro-swagger.json",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx}\"",
     "sync-versions": "node scripts/sync-versions.mjs"

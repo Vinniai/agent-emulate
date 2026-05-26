@@ -1,8 +1,17 @@
 # Changelog
 
-## 0.1.0
+## 0.1.1
 
 <!-- release:start -->
+Patch release that slims the published package.
+
+### Improvements
+
+- **Smaller install** — the bundled Simpro Swagger spec is trimmed to the runtime-only fields the emulator reads, dropping it from about 25 MB to under 1 MB. The full 1435-operation route surface and all emulator behavior are unchanged; the `agent-emulate` tarball is now a fraction of its previous size.
+<!-- release:end -->
+
+## 0.1.0
+
 Initial public release of **agent-emulate** — local, drop-in emulators for third-party APIs and OAuth providers, built for CI and no-network sandboxes.
 
 ### Highlights
@@ -12,7 +21,6 @@ Initial public release of **agent-emulate** — local, drop-in emulators for thi
 - **SaaS & infra APIs** — AWS (S3, AWS SDK wire-compatible), MongoDB Atlas (Data API), Stripe (Checkout, customer sessions, payment methods), Resend, Slack, Vercel, Nango, and 30+ more integration emulators under `@emulators/*`.
 - **Framework adapters** — `@emulators/adapter-next` for Next.js and `@emulators/msw` for Mock Service Worker, plus a live activity stream over SSE.
 - **Consistent inspector UIs** — every emulator ships a shared design-system UI for inspecting traffic, gated by CI quality checks.
-<!-- release:end -->
 
 ---
 
