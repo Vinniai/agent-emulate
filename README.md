@@ -753,6 +753,45 @@ Microsoft Entra ID (Azure AD) v2.0 OAuth 2.0 and OpenID Connect emulation with a
 - `GET /oauth2/v2.0/logout` - end session / logout
 - `POST /oauth2/v2.0/revoke` - token revocation
 
+## WorkOS
+
+WorkOS AuthKit and User Management emulation — SSO/OAuth sign-in, organizations, users, memberships, invitations and sessions, plus org and user lifecycle webhook events for keeping a downstream tenant model in sync. WorkOS SDKs are prefix-less, so point them at the bare origin (or `/workos/*` through the proxy server).
+
+### Authentication & SSO
+
+- `GET /.well-known/openid-configuration` - OIDC discovery document
+- `GET /sso/jwks/:clientId` - JSON Web Key Set (JWKS)
+- `GET /user_management/authorize` - AuthKit authorization endpoint (shows user picker)
+- `POST /user_management/authenticate` - authenticate with a grant
+- `POST /user_management/authenticate/code` - exchange an authorization code
+- `POST /user_management/authenticate/password` - password grant
+- `POST /user_management/authenticate/refresh` - refresh-token grant
+- `POST /user_management/authenticate/organization_selection` - complete organization selection
+- `POST /user_management/authorize/callback` - authorization callback
+
+### Organizations, users & memberships
+
+- `GET` / `POST /user_management/organizations`, `GET /user_management/organizations/:id` - organizations
+- `GET` / `POST /user_management/users`, `GET` / `PUT` / `DELETE /user_management/users/:id` - users
+- `GET` / `POST /user_management/organization_memberships`, `GET` / `DELETE /user_management/organization_memberships/:id` - memberships
+- `GET /user_management/users/:userId/organization_memberships` - a user's memberships
+- `GET` / `POST /user_management/invitations`, `DELETE /user_management/invitations/:id` - invitations
+- `GET` / `DELETE /user_management/sessions/:id` - sessions
+
+Management routes are open by default. Set `EMULATE_WORKOS_REQUIRE_AUTH=1` (or `EMULATE_REQUIRE_AUTH=1`) to reject tokenless calls with a real `401`, while `authorize` / `authenticate`, discovery, JWKS and health stay open so a token can still be obtained.
+
+### Lifecycle webhook events
+
+Creating, updating, or deleting through the management API emits a WorkOS-shaped webhook event, so a downstream sync (for example a Convex tenant model) can subscribe and stay in step:
+
+- `organization.created`
+- `user.created`, `user.updated`, `user.deleted`
+- `organization_membership.created`, `organization_membership.deleted`
+
+Each event uses the real WorkOS envelope — `{ id, event, data, created_at }` — and is delivered through the emulator's webhook dispatch. Delivery is best-effort and fire-and-forget: a missing subscriber never breaks the API call that triggered the event.
+
+- `POST /webhooks/test` - deliver a signed test event to a `target` URL (HMAC-signed `workos-signature` header)
+
 ## AWS
 
 S3, SQS, IAM, and STS emulation with AWS SDK-compatible S3 paths and query-style SQS/IAM/STS endpoints. All responses use AWS-compatible XML.
@@ -1135,6 +1174,17 @@ curl -H "Connection-Id: salesforce-acme" \
 Each entry uses each provider's real API field shapes so client code transfers cleanly from the emulator to production. Copy the connections you need under your `nango:` key in `emulate.config.yaml`.
 
 For a runnable narrated walkthrough (list connections, fetch credentials, merge sync state, pull records, proxy a provider-native call, run the hosted connect-session handshake), see [`examples/api-emulators-quickstart`](./examples/api-emulators-quickstart/).
+
+### Organization-scoped connections (tags)
+
+Connections carry a `tags` map that mirrors the org and end-user identity supplied during the connect-session handshake. When a connection is linked through `POST /connect/sessions`, the emulator stamps the resulting connection with `tags.organization_id` (from `end_user.tags.organizationId`) and `tags.end_user_id` (from `end_user.id`), so multi-tenant callers can scope the connection list to a single org server-side:
+
+```bash
+# All connections for one WorkOS organization
+curl "http://localhost:4030/connections?tags[organization_id]=org_acme"
+```
+
+Tag keys are normalized to lowercase, and every `tags[<key>]=<value>` query param must match exactly (AND semantics). The same keys are searchable through `?search=`. `metadata` keeps its original camelCase shape (`organizationId`, `userId`) for backward compatibility; `tags` is the canonical, filterable surface.
 
 ## Simulating live activity (`agent-emulate-sim`)
 

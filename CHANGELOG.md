@@ -1,14 +1,24 @@
 # Changelog
 
-## 0.1.1
+## 0.2.0
 
 <!-- release:start -->
+Minor release that fills out the WorkOS emulator into a full tenant model and lets Nango connections scope by organization, so a downstream sync can mirror orgs, users and integrations from one consistent identity.
+
+### New Features
+
+- **WorkOS organizations, users & memberships** — full User Management CRUD for organizations, users, organization memberships, invitations and sessions, alongside the existing AuthKit/SSO sign-in surface.
+- **WorkOS lifecycle webhook events** — creating, updating or deleting through the management API now emits a WorkOS-shaped event (`organization.created`, `user.created` / `updated` / `deleted`, `organization_membership.created` / `deleted`) using the real `{ id, event, data, created_at }` envelope. Delivery is best-effort and never breaks the API call that triggered it. A new `POST /webhooks/test` endpoint delivers a signed test event with an HMAC `workos-signature` header.
+- **Organization-scoped Nango connections** — connections linked through a connect session are now tagged with `organization_id` and `end_user_id`, and the connection list can be filtered server-side with `GET /connections?tags[organization_id]=<org>`. `metadata` keeps its camelCase shape for backward compatibility.
+<!-- release:end -->
+
+## 0.1.1
+
 Patch release that slims the published package.
 
 ### Improvements
 
 - **Smaller install** — the bundled Simpro Swagger spec is trimmed to the runtime-only fields the emulator reads, dropping it from about 25 MB to under 1 MB. The full 1435-operation route surface and all emulator behavior are unchanged; the `agent-emulate` tarball is now a fraction of its previous size.
-<!-- release:end -->
 
 ## 0.1.0
 

@@ -1,0 +1,44 @@
+# WorkOS
+
+WorkOS AuthKit and User Management emulation - SSO/OAuth sign-in, organizations, users, memberships, invitations and sessions, plus org and user lifecycle webhook events for keeping a downstream tenant model in sync.
+
+WorkOS SDKs are prefix-less, so point them at the bare origin (or `/workos/*` through the deployable server).
+
+## Authentication & SSO
+
+- `GET /.well-known/openid-configuration` - OIDC discovery document
+- `GET /sso/jwks/:clientId` - JSON Web Key Set (JWKS)
+- `GET /user_management/authorize` - AuthKit authorization endpoint (shows user picker)
+- `POST /user_management/authenticate` - authenticate with a grant
+- `POST /user_management/authenticate/code` - exchange an authorization code
+- `POST /user_management/authenticate/password` - password grant
+- `POST /user_management/authenticate/refresh` - refresh-token grant
+- `POST /user_management/authenticate/organization_selection` - complete organization selection
+- `POST /user_management/authorize/callback` - authorization callback
+
+## Organizations, users & memberships
+
+- `GET` / `POST /user_management/organizations`, `GET /user_management/organizations/:id` - organizations
+- `GET` / `POST /user_management/users`, `GET` / `PUT` / `DELETE /user_management/users/:id` - users
+- `GET` / `POST /user_management/organization_memberships`, `GET` / `DELETE /user_management/organization_memberships/:id` - memberships
+- `GET /user_management/users/:userId/organization_memberships` - a user's memberships
+- `GET` / `POST /user_management/invitations`, `DELETE /user_management/invitations/:id` - invitations
+- `GET` / `DELETE /user_management/sessions/:id` - sessions
+
+Management routes are open by default. Set `EMULATE_WORKOS_REQUIRE_AUTH=1` (or `EMULATE_REQUIRE_AUTH=1`) to reject tokenless calls with a real `401`, while `authorize` / `authenticate`, discovery, JWKS and health stay open so a token can still be obtained.
+
+## Lifecycle webhook events
+
+Creating, updating, or deleting through the management API emits a WorkOS-shaped webhook event, so a downstream sync (for example a Convex tenant model) can subscribe and stay in step:
+
+- `organization.created`
+- `user.created`, `user.updated`, `user.deleted`
+- `organization_membership.created`, `organization_membership.deleted`
+
+Each event uses the real WorkOS envelope - `{ id, event, data, created_at }` - and is delivered through the emulator's webhook dispatch. Delivery is best-effort and fire-and-forget: a missing subscriber never breaks the API call that triggered the event.
+
+- `POST /webhooks/test` - deliver a signed test event to a `target` URL (HMAC-signed `workos-signature` header)
+
+## Pairing with Nango for org sync
+
+The WorkOS lifecycle events pair with the [Nango emulator](/docs/nango)'s organization-scoped connections: a `user.created` or `organization.created` event seeds your tenant model, and Nango connections linked through a connect session are tagged with the same `organization_id`, so a downstream sync can fan out per-org integrations from one consistent identity.

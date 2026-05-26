@@ -10,6 +10,7 @@ export const PAGE_TITLES: Record<string, string> = {
   slack: "Slack API",
   apple: "Apple Sign In",
   microsoft: "Microsoft Entra ID",
+  workos: "WorkOS",
   aws: "AWS",
   okta: "Okta",
   mongoatlas: "MongoDB Atlas",
