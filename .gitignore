@@ -7,6 +7,8 @@ emulate.config.yaml
 emulate.config.yml
 .env*
 !.env.example
+# never commit npm auth — CI uses the NPM_TOKEN secret, local uses ~/.npmrc
+.npmrc
 .DS_Store
 
 # emulate CLI README is copied from root by prepack
