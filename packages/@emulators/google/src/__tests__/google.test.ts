@@ -1199,7 +1199,13 @@ describe("Google plugin integration", () => {
     seedFromConfig(store, base, {
       users: [{ email: "testuser@agent-emulate.dev", name: "Test User" }],
       calendars: [
-        { id: "primary", user_email: "testuser@agent-emulate.dev", summary: "primary", primary: true, time_zone: "UTC" },
+        {
+          id: "primary",
+          user_email: "testuser@agent-emulate.dev",
+          summary: "primary",
+          primary: true,
+          time_zone: "UTC",
+        },
       ],
       calendar_events: [
         {
@@ -1266,5 +1272,114 @@ describe("Google plugin integration", () => {
 
     expect(byId.evt_explicit_wins.start.dateTime).toBe("2026-04-18T11:00:00Z");
     expect(byId.evt_explicit_wins.end.dateTime).toBe("2026-04-18T12:00:00Z");
+  });
+
+  it("normalizes seeded Drive item parent, size and modified time shapes", async () => {
+    // Seed authors write the singular `parent_id`, an explicit `size`, and a
+    // `modified_time` (or its `modified_date_time` alias). Each must surface on
+    // the wire so folder hierarchy, byte size and modifiedTime are preserved
+    // rather than collapsing to root / data-length / insertion time.
+    const store = new Store();
+    const webhooks = new WebhookDispatcher();
+    const tokenMap: TokenMap = new Map();
+    tokenMap.set("test-token", {
+      login: "testuser@agent-emulate.dev",
+      id: 1,
+      scopes: ["openid", "email", "profile"],
+    });
+
+    const driveApp = new Hono();
+    driveApp.onError(createApiErrorHandler());
+    driveApp.use("*", createErrorHandler());
+    driveApp.use("*", authMiddleware(tokenMap));
+    googlePlugin.register(driveApp as any, store, webhooks, base, tokenMap);
+    seedFromConfig(store, base, {
+      users: [{ email: "testuser@agent-emulate.dev", name: "Test User" }],
+      drive_items: [
+        {
+          id: "drv_seed_root",
+          user_email: "testuser@agent-emulate.dev",
+          name: "Root Folder",
+          mime_type: "application/vnd.google-apps.folder",
+        },
+        {
+          id: "drv_seed_child",
+          user_email: "testuser@agent-emulate.dev",
+          name: "Child Folder",
+          mime_type: "application/vnd.google-apps.folder",
+          // Singular parent + modified_time (canonical key).
+          parent_id: "drv_seed_root",
+          modified_time: "2026-04-01T09:00:00Z",
+        },
+        {
+          id: "drv_seed_file",
+          user_email: "testuser@agent-emulate.dev",
+          name: "Report.pdf",
+          mime_type: "application/pdf",
+          parent_id: "drv_seed_child",
+          // Explicit size (no `data`) + the modified_date_time alias.
+          size: 12345,
+          modified_date_time: "2026-04-02T10:00:00Z",
+        },
+      ],
+    });
+
+    const res = await driveApp.request(`${base}/drive/v3/files`, {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      files: Array<{
+        id: string;
+        parents: string[];
+        size?: string;
+        modifiedTime: string;
+      }>;
+    };
+    const byId = Object.fromEntries(body.files.map((file) => [file.id, file]));
+
+    // Singular parent_id widens to the parents array (hierarchy preserved).
+    expect(byId.drv_seed_child.parents).toEqual(["drv_seed_root"]);
+    expect(byId.drv_seed_file.parents).toEqual(["drv_seed_child"]);
+
+    // Explicit size wins even though the item carries no `data`.
+    expect(byId.drv_seed_file.size).toBe("12345");
+
+    // Seeded modified time (both key spellings) wins over insertion time.
+    expect(byId.drv_seed_child.modifiedTime).toBe("2026-04-01T09:00:00Z");
+    expect(byId.drv_seed_file.modifiedTime).toBe("2026-04-02T10:00:00Z");
+  });
+
+  it("accepts `name` as an alias for calendar `summary`", async () => {
+    // Seed authors commonly write `name:` for a calendar; the loader must map it
+    // to `summary` (the field real Google uses) so calendarList is not null.
+    const store = new Store();
+    const webhooks = new WebhookDispatcher();
+    const tokenMap: TokenMap = new Map();
+    tokenMap.set("test-token", {
+      login: "testuser@agent-emulate.dev",
+      id: 1,
+      scopes: ["openid", "email", "profile"],
+    });
+
+    const calApp = new Hono();
+    calApp.onError(createApiErrorHandler());
+    calApp.use("*", createErrorHandler());
+    calApp.use("*", authMiddleware(tokenMap));
+    googlePlugin.register(calApp as any, store, webhooks, base, tokenMap);
+    seedFromConfig(store, base, {
+      users: [{ email: "testuser@agent-emulate.dev", name: "Test User" }],
+      calendars: [{ id: "cal_named", user_email: "testuser@agent-emulate.dev", name: "Team Calendar" }],
+    });
+
+    const res = await calApp.request(`${base}/calendar/v3/users/me/calendarList`, {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { items: Array<{ id: string; summary: string }> };
+    const named = body.items.find((calendar) => calendar.id === "cal_named");
+    expect(named?.summary).toBe("Team Calendar");
   });
 });

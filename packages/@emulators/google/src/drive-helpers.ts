@@ -15,6 +15,7 @@ export interface GoogleDriveItemInput {
   size?: number | null;
   trashed?: boolean;
   data?: string | null;
+  modified_time?: string | null;
 }
 
 export interface DriveListOptions {
@@ -50,6 +51,7 @@ export function createDriveItemRecord(gs: GoogleStore, input: GoogleDriveItemInp
     size: input.size ?? null,
     trashed: input.trashed ?? false,
     data: input.data ?? null,
+    modified_time: input.modified_time ?? null,
   });
 
   return item;
@@ -136,7 +138,7 @@ export function formatDriveItemResource(item: GoogleDriveItem) {
     webViewLink: item.web_view_link ?? undefined,
     webContentLink: item.web_content_link ?? undefined,
     createdTime: item.created_at,
-    modifiedTime: item.updated_at,
+    modifiedTime: item.modified_time ?? item.updated_at,
     size: item.size != null ? String(item.size) : undefined,
     trashed: item.trashed || undefined,
   };
