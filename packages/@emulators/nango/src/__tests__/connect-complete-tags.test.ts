@@ -49,7 +49,9 @@ describe("connect/complete — org/user tags", () => {
     await completeConnection(app, { userId: "user_dev", orgId: "org_other", integration: "quickbooks" });
 
     const res = await app.request(`${BASE}/connections?tags[organization_id]=org_test_taskr`);
-    const { connections } = (await res.json()) as { connections: Array<{ provider: string; tags: Record<string, string> }> };
+    const { connections } = (await res.json()) as {
+      connections: Array<{ provider: string; tags: Record<string, string> }>;
+    };
     expect(connections).toHaveLength(1);
     expect(connections[0].provider).toBe("xero");
     expect(connections[0].tags.organization_id).toBe("org_test_taskr");

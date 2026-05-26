@@ -135,7 +135,9 @@ async function main(): Promise<void> {
   );
   const gTok = (await gTokRes.json()) as { access_token?: string };
   check("gmail token exchange returns an access token", typeof gTok.access_token === "string");
-  const gInfoRes = await req("/google/oauth2/v2/userinfo", { headers: { Authorization: `Bearer ${gTok.access_token}` } });
+  const gInfoRes = await req("/google/oauth2/v2/userinfo", {
+    headers: { Authorization: `Bearer ${gTok.access_token}` },
+  });
   const gInfo = (await gInfoRes.json()) as { email?: string };
   check("gmail userinfo resolves the personal user", gInfo.email === gmailEmail, gInfo.email);
   const gMsgRes = await req("/google/gmail/v1/users/me/messages", {
@@ -149,7 +151,14 @@ async function main(): Promise<void> {
   const teamsEmail = "testuser@agent-emulate.dev";
   const mCbRes = await req(
     "/microsoft/oauth2/v2.0/authorize/callback",
-    form({ email: teamsEmail, redirect_uri: REDIRECT, scope: "openid email profile", state: "m", client_id: "x", response_mode: "query" }),
+    form({
+      email: teamsEmail,
+      redirect_uri: REDIRECT,
+      scope: "openid email profile",
+      state: "m",
+      client_id: "x",
+      response_mode: "query",
+    }),
   );
   const mCode = new URL(mCbRes.headers.get("Location") ?? "").searchParams.get("code") ?? "";
   check("teams callback issues an auth code", mCbRes.status === 302 && mCode.length > 0, mCbRes.status);
@@ -170,7 +179,10 @@ async function main(): Promise<void> {
     headers: { Authorization: `Bearer ${mTok.access_token}` },
   });
   const teams = (await teamsRes.json()) as { value?: Array<{ displayName: string }> };
-  check("joined teams are reachable with the personal token", teamsRes.status === 200 && (teams.value?.length ?? 0) > 0);
+  check(
+    "joined teams are reachable with the personal token",
+    teamsRes.status === 200 && (teams.value?.length ?? 0) > 0,
+  );
 
   // ---- 5. Cross-cutting invariant --------------------------------------------
   section("5. Invariant: one org id across org-level sync, comms stay user-scoped");
@@ -180,7 +192,9 @@ async function main(): Promise<void> {
   );
   check(
     "comms identities are personal and distinct from each other",
-    gInfo.email === gmailEmail && (mInfo.email === teamsEmail || mInfo.preferred_username === teamsEmail) && gmailEmail !== teamsEmail,
+    gInfo.email === gmailEmail &&
+      (mInfo.email === teamsEmail || mInfo.preferred_username === teamsEmail) &&
+      gmailEmail !== teamsEmail,
   );
 
   // ---- result -----------------------------------------------------------------

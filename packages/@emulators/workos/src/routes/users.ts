@@ -4,7 +4,15 @@ import type { WorkOSStoreFacade } from "../store.js";
 import { emitWorkOSEvent } from "./events.js";
 
 function membershipObject(
-  m: { id: string; user_id: string; organization_id: string; role: { slug: string }; status: string; created_at: string; updated_at: string },
+  m: {
+    id: string;
+    user_id: string;
+    organization_id: string;
+    role: { slug: string };
+    status: string;
+    created_at: string;
+    updated_at: string;
+  },
   orgName: string,
 ) {
   return {
@@ -56,7 +64,16 @@ export function userRoutes(app: Hono<AppEnv>, ws: WorkOSStoreFacade, webhooks: W
         last_name?: string;
         email_verified?: boolean;
       }>()
-      .catch(() => ({}) as { email?: string; password?: string; first_name?: string; last_name?: string; email_verified?: boolean });
+      .catch(
+        () =>
+          ({}) as {
+            email?: string;
+            password?: string;
+            first_name?: string;
+            last_name?: string;
+            email_verified?: boolean;
+          },
+      );
     if (!body.email) return c.json({ code: "validation_error", message: "email is required" }, 422);
     const user = ws.insertUser({
       email: body.email,
@@ -138,7 +155,10 @@ export function userRoutes(app: Hono<AppEnv>, ws: WorkOSStoreFacade, webhooks: W
     emitWorkOSEvent(
       webhooks,
       "organization_membership.deleted",
-      membershipObject({ ...existing, status: "inactive" }, ws.getOrg(existing.organization_id)?.name ?? existing.organization_id),
+      membershipObject(
+        { ...existing, status: "inactive" },
+        ws.getOrg(existing.organization_id)?.name ?? existing.organization_id,
+      ),
     );
     return c.body(null, 204);
   });
