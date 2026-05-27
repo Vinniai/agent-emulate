@@ -90,21 +90,15 @@ export function syncSimproIntoNango(
   }
 
   // Format customers using the canonical Simpro REST formatter.
-  const customerRows = ss.customers
-    .all()
-    .map((c) => formatCustomer(c) as Record<string, unknown>);
+  const customerRows = ss.customers.all().map((c) => formatCustomer(c) as Record<string, unknown>);
   ns.setRecords(connectionId, "SimproCustomer", customerRows);
 
   // Format invoices — pass ss for job/customer look-ups (same as REST routes).
-  const invoiceRows = ss.invoices
-    .all()
-    .map((i) => formatInvoice(i, ss) as Record<string, unknown>);
+  const invoiceRows = ss.invoices.all().map((i) => formatInvoice(i, ss) as Record<string, unknown>);
   ns.setRecords(connectionId, "SimproInvoice", invoiceRows);
 
   // Format quotes — pass ss for customer/site/staff look-ups.
-  const quoteRows = ss.quotes
-    .all()
-    .map((q) => formatQuote(q, ss) as Record<string, unknown>);
+  const quoteRows = ss.quotes.all().map((q) => formatQuote(q, ss) as Record<string, unknown>);
   ns.setRecords(connectionId, "SimproQuote", quoteRows);
 
   return {

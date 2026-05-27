@@ -44,9 +44,7 @@ function ensureProxyToken(simproApp: ServiceApp): string {
     });
     return PROXY_TOKEN;
   }
-  const clientId =
-    simproApp.store.getData<string>("simpro.oauth.client_id") ??
-    "emulator-simpro-client";
+  const clientId = simproApp.store.getData<string>("simpro.oauth.client_id") ?? "emulator-simpro-client";
   ss.oauthTokens.insert({
     access_token: PROXY_TOKEN,
     refresh_token: "ref_nango_proxy_forward_static",
@@ -66,10 +64,7 @@ function isSimproProxy(providerConfigKey: string, simproPath: string): boolean {
   return simproPath.startsWith("api/v1.0/companies");
 }
 
-export function mountNangoSimproProxy(
-  parent: Hono<AppEnv>,
-  apps: Map<ServiceName, ServiceApp>,
-): void {
+export function mountNangoSimproProxy(parent: Hono<AppEnv>, apps: Map<ServiceName, ServiceApp>): void {
   const simproApp = apps.get("simpro");
   if (!simproApp) return;
 
@@ -78,10 +73,7 @@ export function mountNangoSimproProxy(
   parent.use(`${PROXY_PREFIX}*`, async (c, next) => {
     const url = new URL(c.req.url);
     const simproPath = url.pathname.slice(PROXY_PREFIX.length); // e.g. api/v1.0/...
-    const providerConfigKey =
-      c.req.header("Provider-Config-Key") ??
-      c.req.header("provider-config-key") ??
-      "";
+    const providerConfigKey = c.req.header("Provider-Config-Key") ?? c.req.header("provider-config-key") ?? "";
 
     if (!isSimproProxy(providerConfigKey, simproPath)) {
       return next();
@@ -105,8 +97,6 @@ export function mountNangoSimproProxy(
       init.duplex = "half";
     }
 
-    return simproApp.hono.fetch(
-      new Request(targetUrl.toString(), init as RequestInit),
-    );
+    return simproApp.hono.fetch(new Request(targetUrl.toString(), init as RequestInit));
   });
 }
