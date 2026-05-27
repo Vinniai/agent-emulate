@@ -71,7 +71,10 @@ export interface GoogleSeedMessage {
 export interface GoogleSeedCalendar {
   id?: string;
   user_email?: string;
-  summary: string;
+  // `name` is accepted as an alias for `summary` (the field real Google uses),
+  // since that is what seed authors commonly write.
+  summary?: string;
+  name?: string;
   description?: string;
   time_zone?: string;
   primary?: boolean;
@@ -87,10 +90,17 @@ export interface GoogleSeedCalendarEvent {
   summary?: string;
   description?: string;
   location?: string;
+  // Internal storage fields. When present these win over the convenience
+  // `start`/`end` below.
   start_date_time?: string;
   start_date?: string;
   end_date_time?: string;
   end_date?: string;
+  // Convenience shapes seed authors actually write: a flat ISO string
+  // ("2026-04-14T07:30:00+11:00" → timed, "2026-04-14" → all-day) or the
+  // real Google nested object. Normalized into the fields above on load.
+  start?: string | { dateTime?: string; date?: string };
+  end?: string | { dateTime?: string; date?: string };
   attendees?: Array<{
     email: string;
     display_name?: string;
@@ -109,6 +119,14 @@ export interface GoogleSeedDriveItem {
   name: string;
   mime_type: string;
   parent_ids?: string[];
+  // Convenience shapes seed authors actually write: `parent_id` is the singular
+  // form of `parent_ids`; `size` overrides the byte length derived from `data`;
+  // `modified_time` (alias `modified_date_time`) sets the reported modifiedTime
+  // instead of the insertion timestamp.
+  parent_id?: string;
+  size?: number;
+  modified_time?: string;
+  modified_date_time?: string;
   data?: string;
 }
 
@@ -429,7 +447,7 @@ function seedCalendars(store: Store, calendars: GoogleSeedCalendar[], fallbackEm
     createCalendarRecord(gs, {
       google_id: calendar.id,
       user_email: userEmail,
-      summary: calendar.summary,
+      summary: calendar.summary ?? calendar.name ?? "",
       description: calendar.description ?? null,
       time_zone: calendar.time_zone ?? "UTC",
       primary: calendar.primary ?? false,
@@ -437,6 +455,27 @@ function seedCalendars(store: Store, calendars: GoogleSeedCalendar[], fallbackEm
       access_role: calendar.access_role ?? "owner",
     });
   }
+}
+
+// Accept the date shapes seed authors actually write and resolve them to the
+// internal dateTime/date split. Explicit snake_case fields win; otherwise a
+// flat string splits on whether it carries a time ("T"), and a nested Google
+// object passes through. Mirrors the real Calendar API's start/end union.
+function normalizeSeedDate(
+  flat: string | { dateTime?: string; date?: string } | undefined,
+  explicitDateTime: string | undefined,
+  explicitDate: string | undefined,
+): { dateTime: string | null; date: string | null } {
+  if (explicitDateTime || explicitDate) {
+    return { dateTime: explicitDateTime ?? null, date: explicitDate ?? null };
+  }
+  if (typeof flat === "string") {
+    return flat.includes("T") ? { dateTime: flat, date: null } : { dateTime: null, date: flat };
+  }
+  if (flat && typeof flat === "object") {
+    return { dateTime: flat.dateTime ?? null, date: flat.date ?? null };
+  }
+  return { dateTime: null, date: null };
 }
 
 function seedCalendarEvents(store: Store, events: GoogleSeedCalendarEvent[], fallbackEmail: string): void {
@@ -447,6 +486,8 @@ function seedCalendarEvents(store: Store, events: GoogleSeedCalendarEvent[], fal
     if (event.id && gs.calendarEvents.findBy("google_id", event.id).some((e) => e.user_email === userEmail)) {
       continue;
     }
+    const start = normalizeSeedDate(event.start, event.start_date_time, event.start_date);
+    const end = normalizeSeedDate(event.end, event.end_date_time, event.end_date);
     createCalendarEventRecord(gs, {
       google_id: event.id,
       user_email: userEmail,
@@ -455,10 +496,10 @@ function seedCalendarEvents(store: Store, events: GoogleSeedCalendarEvent[], fal
       summary: event.summary,
       description: event.description ?? null,
       location: event.location ?? null,
-      start_date_time: event.start_date_time ?? null,
-      start_date: event.start_date ?? null,
-      end_date_time: event.end_date_time ?? null,
-      end_date: event.end_date ?? null,
+      start_date_time: start.dateTime,
+      start_date: start.date,
+      end_date_time: end.dateTime,
+      end_date: end.date,
       attendees: (event.attendees ?? []).map((attendee) => ({
         email: attendee.email,
         display_name: attendee.display_name ?? null,
@@ -488,8 +529,9 @@ function seedDriveItems(store: Store, items: GoogleSeedDriveItem[], fallbackEmai
       user_email: userEmail,
       name: item.name,
       mime_type: item.mime_type,
-      parent_google_ids: item.parent_ids ?? ["root"],
-      size: item.data ? Buffer.byteLength(item.data, "utf8") : null,
+      parent_google_ids: item.parent_ids ?? (item.parent_id ? [item.parent_id] : ["root"]),
+      size: item.size ?? (item.data ? Buffer.byteLength(item.data, "utf8") : null),
+      modified_time: item.modified_time ?? item.modified_date_time ?? null,
       data: item.data ? Buffer.from(item.data, "utf8").toString("base64url") : null,
     });
   }
@@ -592,6 +634,8 @@ export function storeToSeedConfig(store: Store, _baseUrl: string): GoogleSeedCon
       name: d.name,
       mime_type: d.mime_type,
       parent_ids: d.parent_google_ids,
+      size: d.size ?? undefined,
+      modified_time: d.modified_time ?? undefined,
       data: d.data === null ? undefined : Buffer.from(d.data, "base64url").toString("utf8"),
     })),
   };

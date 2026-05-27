@@ -60,26 +60,6 @@ export function checkoutSessionRoutes({ app, store, webhooks, baseUrl }: RouteCo
             `line_items[${i}]`,
           );
         }
-        if (!li.price || typeof li.price !== "string") {
-          return stripeError(
-            c,
-            400,
-            "invalid_request_error",
-            `Missing required param: line_items[${i}][price].`,
-            undefined,
-            `line_items[${i}][price]`,
-          );
-        }
-        if (!ss.prices.findOneBy("stripe_id", li.price)) {
-          return stripeError(
-            c,
-            400,
-            "invalid_request_error",
-            `No such price: '${li.price}'`,
-            "resource_missing",
-            `line_items[${i}][price]`,
-          );
-        }
         const qty = typeof li.quantity === "number" ? li.quantity : parseInt(li.quantity as string, 10);
         if (!Number.isFinite(qty) || qty < 1) {
           return stripeError(
@@ -91,7 +71,97 @@ export function checkoutSessionRoutes({ app, store, webhooks, baseUrl }: RouteCo
             `line_items[${i}][quantity]`,
           );
         }
-        lineItems.push({ price: li.price, quantity: qty });
+
+        let priceId: string;
+        if (typeof li.price === "string") {
+          if (!ss.prices.findOneBy("stripe_id", li.price)) {
+            return stripeError(
+              c,
+              400,
+              "invalid_request_error",
+              `No such price: '${li.price}'`,
+              "resource_missing",
+              `line_items[${i}][price]`,
+            );
+          }
+          priceId = li.price;
+        } else if (li.price_data && typeof li.price_data === "object") {
+          // Real Stripe accepts inline price_data; create an ad-hoc product + price
+          // so the hosted page can render the line item.
+          const pd = li.price_data as Record<string, unknown>;
+          if (!pd.currency) {
+            return stripeError(
+              c,
+              400,
+              "invalid_request_error",
+              `Missing required param: line_items[${i}][price_data][currency].`,
+              undefined,
+              `line_items[${i}][price_data][currency]`,
+            );
+          }
+          if (pd.unit_amount === undefined) {
+            return stripeError(
+              c,
+              400,
+              "invalid_request_error",
+              `Missing required param: line_items[${i}][price_data][unit_amount].`,
+              undefined,
+              `line_items[${i}][price_data][unit_amount]`,
+            );
+          }
+
+          let productId: string;
+          if (typeof pd.product === "string") {
+            if (!ss.products.findOneBy("stripe_id", pd.product)) {
+              return stripeError(
+                c,
+                400,
+                "invalid_request_error",
+                `No such product: '${pd.product}'`,
+                "resource_missing",
+                `line_items[${i}][price_data][product]`,
+              );
+            }
+            productId = pd.product;
+          } else {
+            const productData = (pd.product_data as Record<string, unknown>) ?? {};
+            const product = ss.products.insert({
+              stripe_id: stripeId("prod"),
+              name: (productData.name as string) ?? "Ad-hoc product",
+              description: (productData.description as string) ?? null,
+              active: true,
+              metadata: {},
+            });
+            productId = product.stripe_id;
+          }
+
+          const recurring = pd.recurring as { interval?: "month" | "year"; interval_count?: number } | undefined;
+          const price = ss.prices.insert({
+            stripe_id: stripeId("price"),
+            product_id: productId,
+            currency: (pd.currency as string).toLowerCase(),
+            unit_amount: Number(pd.unit_amount),
+            type: recurring?.interval ? "recurring" : "one_time",
+            lookup_key: null,
+            recurring: recurring?.interval
+              ? { interval: recurring.interval, interval_count: recurring.interval_count ?? 1 }
+              : null,
+            active: true,
+            metadata: {},
+          });
+          priceId = price.stripe_id;
+        } else {
+          return stripeError(
+            c,
+            400,
+            "invalid_request_error",
+            `Missing required param: line_items[${i}][price].`,
+            undefined,
+            `line_items[${i}][price]`,
+          );
+        }
+
+        lineItems.push({ price: priceId, quantity: qty });
       }
     }
 

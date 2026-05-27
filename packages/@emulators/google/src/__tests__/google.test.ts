@@ -1177,4 +1177,209 @@ describe("Google plugin integration", () => {
     ).json()) as Record<string, unknown>;
     expect(inactive).toEqual({ active: false });
   });
+
+  it("normalizes seeded calendar event date shapes into the Google wire format", async () => {
+    // Seed authors write start/end in several shapes. Each must surface on the
+    // wire as a populated start.dateTime (timed) or start.date (all-day) so a
+    // client mirroring the real Calendar API can place the event.
+    const store = new Store();
+    const webhooks = new WebhookDispatcher();
+    const tokenMap: TokenMap = new Map();
+    tokenMap.set("test-token", {
+      login: "testuser@agent-emulate.dev",
+      id: 1,
+      scopes: ["openid", "email", "profile"],
+    });
+
+    const shapesApp = new Hono();
+    shapesApp.onError(createApiErrorHandler());
+    shapesApp.use("*", createErrorHandler());
+    shapesApp.use("*", authMiddleware(tokenMap));
+    googlePlugin.register(shapesApp as any, store, webhooks, base, tokenMap);
+    seedFromConfig(store, base, {
+      users: [{ email: "testuser@agent-emulate.dev", name: "Test User" }],
+      calendars: [
+        {
+          id: "primary",
+          user_email: "testuser@agent-emulate.dev",
+          summary: "primary",
+          primary: true,
+          time_zone: "UTC",
+        },
+      ],
+      calendar_events: [
+        {
+          id: "evt_flat_timed",
+          user_email: "testuser@agent-emulate.dev",
+          calendar_id: "primary",
+          summary: "Flat timed",
+          start: "2026-04-14T07:30:00+11:00",
+          end: "2026-04-14T08:30:00+11:00",
+        },
+        {
+          id: "evt_flat_allday",
+          user_email: "testuser@agent-emulate.dev",
+          calendar_id: "primary",
+          summary: "Flat all-day",
+          start: "2026-04-15",
+          end: "2026-04-16",
+        },
+        {
+          id: "evt_nested",
+          user_email: "testuser@agent-emulate.dev",
+          calendar_id: "primary",
+          summary: "Nested object",
+          start: { dateTime: "2026-04-17T09:00:00Z" },
+          end: { dateTime: "2026-04-17T10:00:00Z" },
+        },
+        {
+          id: "evt_explicit_wins",
+          user_email: "testuser@agent-emulate.dev",
+          calendar_id: "primary",
+          summary: "Explicit snake_case wins",
+          // A stray flat value must lose to the explicit internal fields.
+          start: "2026-01-01T00:00:00Z",
+          start_date_time: "2026-04-18T11:00:00Z",
+          end_date_time: "2026-04-18T12:00:00Z",
+        },
+      ],
+    });
+
+    const res = await shapesApp.request(`${base}/calendar/v3/calendars/primary/events`, {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      items: Array<{
+        id: string;
+        start: { dateTime?: string; date?: string };
+        end: { dateTime?: string; date?: string };
+      }>;
+    };
+    const byId = Object.fromEntries(body.items.map((item) => [item.id, item]));
+
+    expect(byId.evt_flat_timed.start.dateTime).toBe("2026-04-14T07:30:00+11:00");
+    expect(byId.evt_flat_timed.end.dateTime).toBe("2026-04-14T08:30:00+11:00");
+    expect(byId.evt_flat_timed.start.date).toBeUndefined();
+
+    expect(byId.evt_flat_allday.start.date).toBe("2026-04-15");
+    expect(byId.evt_flat_allday.end.date).toBe("2026-04-16");
+    expect(byId.evt_flat_allday.start.dateTime).toBeUndefined();
+
+    expect(byId.evt_nested.start.dateTime).toBe("2026-04-17T09:00:00Z");
+    expect(byId.evt_nested.end.dateTime).toBe("2026-04-17T10:00:00Z");
+
+    expect(byId.evt_explicit_wins.start.dateTime).toBe("2026-04-18T11:00:00Z");
+    expect(byId.evt_explicit_wins.end.dateTime).toBe("2026-04-18T12:00:00Z");
+  });
+
+  it("normalizes seeded Drive item parent, size and modified time shapes", async () => {
+    // Seed authors write the singular `parent_id`, an explicit `size`, and a
+    // `modified_time` (or its `modified_date_time` alias). Each must surface on
+    // the wire so folder hierarchy, byte size and modifiedTime are preserved
+    // rather than collapsing to root / data-length / insertion time.
+    const store = new Store();
+    const webhooks = new WebhookDispatcher();
+    const tokenMap: TokenMap = new Map();
+    tokenMap.set("test-token", {
+      login: "testuser@agent-emulate.dev",
+      id: 1,
+      scopes: ["openid", "email", "profile"],
+    });
+
+    const driveApp = new Hono();
+    driveApp.onError(createApiErrorHandler());
+    driveApp.use("*", createErrorHandler());
+    driveApp.use("*", authMiddleware(tokenMap));
+    googlePlugin.register(driveApp as any, store, webhooks, base, tokenMap);
+    seedFromConfig(store, base, {
+      users: [{ email: "testuser@agent-emulate.dev", name: "Test User" }],
+      drive_items: [
+        {
+          id: "drv_seed_root",
+          user_email: "testuser@agent-emulate.dev",
+          name: "Root Folder",
+          mime_type: "application/vnd.google-apps.folder",
+        },
+        {
+          id: "drv_seed_child",
+          user_email: "testuser@agent-emulate.dev",
+          name: "Child Folder",
+          mime_type: "application/vnd.google-apps.folder",
+          // Singular parent + modified_time (canonical key).
+          parent_id: "drv_seed_root",
+          modified_time: "2026-04-01T09:00:00Z",
+        },
+        {
+          id: "drv_seed_file",
+          user_email: "testuser@agent-emulate.dev",
+          name: "Report.pdf",
+          mime_type: "application/pdf",
+          parent_id: "drv_seed_child",
+          // Explicit size (no `data`) + the modified_date_time alias.
+          size: 12345,
+          modified_date_time: "2026-04-02T10:00:00Z",
+        },
+      ],
+    });
+
+    const res = await driveApp.request(`${base}/drive/v3/files`, {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      files: Array<{
+        id: string;
+        parents: string[];
+        size?: string;
+        modifiedTime: string;
+      }>;
+    };
+    const byId = Object.fromEntries(body.files.map((file) => [file.id, file]));
+
+    // Singular parent_id widens to the parents array (hierarchy preserved).
+    expect(byId.drv_seed_child.parents).toEqual(["drv_seed_root"]);
+    expect(byId.drv_seed_file.parents).toEqual(["drv_seed_child"]);
+
+    // Explicit size wins even though the item carries no `data`.
+    expect(byId.drv_seed_file.size).toBe("12345");
+
+    // Seeded modified time (both key spellings) wins over insertion time.
+    expect(byId.drv_seed_child.modifiedTime).toBe("2026-04-01T09:00:00Z");
+    expect(byId.drv_seed_file.modifiedTime).toBe("2026-04-02T10:00:00Z");
+  });
+
+  it("accepts `name` as an alias for calendar `summary`", async () => {
+    // Seed authors commonly write `name:` for a calendar; the loader must map it
+    // to `summary` (the field real Google uses) so calendarList is not null.
+    const store = new Store();
+    const webhooks = new WebhookDispatcher();
+    const tokenMap: TokenMap = new Map();
+    tokenMap.set("test-token", {
+      login: "testuser@agent-emulate.dev",
+      id: 1,
+      scopes: ["openid", "email", "profile"],
+    });
+
+    const calApp = new Hono();
+    calApp.onError(createApiErrorHandler());
+    calApp.use("*", createErrorHandler());
+    calApp.use("*", authMiddleware(tokenMap));
+    googlePlugin.register(calApp as any, store, webhooks, base, tokenMap);
+    seedFromConfig(store, base, {
+      users: [{ email: "testuser@agent-emulate.dev", name: "Test User" }],
+      calendars: [{ id: "cal_named", user_email: "testuser@agent-emulate.dev", name: "Team Calendar" }],
+    });
+
+    const res = await calApp.request(`${base}/calendar/v3/users/me/calendarList`, {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { items: Array<{ id: string; summary: string }> };
+    const named = body.items.find((calendar) => calendar.id === "cal_named");
+    expect(named?.summary).toBe("Team Calendar");
+  });
 });

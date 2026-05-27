@@ -54,6 +54,9 @@ import type { SimproAttachmentParentType } from "./entities.js";
 export { getSimproStore, type SimproStore } from "./store.js";
 export { fireWebhook } from "./routes/webhooks.js";
 export { fillSimproSwaggerRecordsFromSpec } from "./routes/specFallback.js";
+// Canonical REST formatters — re-exported so the server-layer Nango bridge can
+// emit the exact same JSON the /simpro REST routes return.
+export { formatCustomer, formatInvoice, formatQuote } from "./formatters.js";
 export * from "./entities.js";
 
 export interface SimproSeedConfig {

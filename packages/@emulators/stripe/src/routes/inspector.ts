@@ -35,13 +35,19 @@ export function inspectorRoutes(ctx: RouteContext): void {
     const subscriptions = s.subscriptions.all();
     const paymentIntents = s.paymentIntents.all();
     const charges = s.charges.all();
+    const accounts = s.accounts.all();
+    const transfers = s.transfers.all();
+    const payouts = s.payouts.all();
 
     const sidebar = `
 <a href="/?tab=customers"${tab === "customers" ? ' class="active"' : ""}>Customers (${customers.length})</a>
 <a href="/?tab=subscriptions"${tab === "subscriptions" ? ' class="active"' : ""}>Subscriptions (${subscriptions.length})</a>
 <a href="/?tab=products"${tab === "products" ? ' class="active"' : ""}>Products (${products.length})</a>
 <a href="/?tab=prices"${tab === "prices" ? ' class="active"' : ""}>Prices (${prices.length})</a>
-<a href="/?tab=payments"${tab === "payments" ? ' class="active"' : ""}>Payments (${paymentIntents.length})</a>`;
+<a href="/?tab=payments"${tab === "payments" ? ' class="active"' : ""}>Payments (${paymentIntents.length})</a>
+<a href="/?tab=accounts"${tab === "accounts" ? ' class="active"' : ""}>Connect Accounts (${accounts.length})</a>
+<a href="/?tab=transfers"${tab === "transfers" ? ' class="active"' : ""}>Transfers (${transfers.length})</a>
+<a href="/?tab=payouts"${tab === "payouts" ? ' class="active"' : ""}>Payouts (${payouts.length})</a>`;
 
     let bodyHtml = "";
 
@@ -214,7 +220,90 @@ export function inspectorRoutes(ctx: RouteContext): void {
 </div>`;
     }
 
-    const stats = `${customers.length} customers · ${subscriptions.length} subscriptions · ${paymentIntents.length} payments`;
+    if (tab === "accounts") {
+      const rows =
+        accounts.length === 0
+          ? `<tr><td colspan="5" class="inspector-empty">No connected accounts yet.</td></tr>`
+          : accounts
+              .map((a) => {
+                const caps = Object.keys(a.capabilities);
+                const capLabel = caps.length === 0 ? "—" : caps.map((cap) => escapeHtml(cap)).join(", ");
+                return `
+<tr>
+  <td><code style="color:#1a8c00;font-size:.75rem">${escapeHtml(a.stripe_id)}</code></td>
+  <td><span class="badge badge-requested">${escapeHtml(a.type)}</span></td>
+  <td><span style="color:#33ff00">${escapeHtml(a.email ?? "—")}</span><br><span style="color:#1a8c00;font-size:.75rem">${escapeHtml(a.country)}</span></td>
+  <td>${a.charges_enabled ? '<span class="badge badge-granted">charges</span>' : '<span class="badge badge-denied">no charges</span>'} ${a.payouts_enabled ? '<span class="badge badge-granted">payouts</span>' : '<span class="badge badge-denied">no payouts</span>'}</td>
+  <td style="color:#1a8c00;font-size:.75rem">${capLabel}</td>
+</tr>`;
+              })
+              .join("");
+
+      bodyHtml = `
+<div class="inspector-section">
+  <h2>Connect Accounts</h2>
+  <table class="inspector-table">
+    <thead><tr><th>ID</th><th>Type</th><th>Email / Country</th><th>Status</th><th>Capabilities</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>`;
+    }
+
+    if (tab === "transfers") {
+      const rows =
+        transfers.length === 0
+          ? `<tr><td colspan="5" class="inspector-empty">No transfers yet.</td></tr>`
+          : transfers
+              .map((t) => {
+                return `
+<tr>
+  <td><code style="color:#1a8c00;font-size:.75rem">${escapeHtml(t.stripe_id)}</code></td>
+  <td><span style="color:#33ff00;font-weight:600">${cents(t.amount, t.currency)}</span></td>
+  <td><code style="color:#1a8c00;font-size:.75rem">${escapeHtml(t.destination ?? "—")}</code></td>
+  <td>${t.reversed ? '<span class="badge badge-denied">reversed</span>' : t.amount_reversed > 0 ? `<span class="badge badge-requested">partial ${cents(t.amount_reversed, t.currency)}</span>` : '<span class="badge badge-granted">paid</span>'}</td>
+  <td style="color:#1a8c00;font-size:.75rem">${escapeHtml(t.transfer_group ?? "—")}</td>
+</tr>`;
+              })
+              .join("");
+
+      bodyHtml = `
+<div class="inspector-section">
+  <h2>Transfers</h2>
+  <table class="inspector-table">
+    <thead><tr><th>ID</th><th>Amount</th><th>Destination</th><th>Status</th><th>Group</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>`;
+    }
+
+    if (tab === "payouts") {
+      const rows =
+        payouts.length === 0
+          ? `<tr><td colspan="5" class="inspector-empty">No payouts yet.</td></tr>`
+          : payouts
+              .map((p) => {
+                return `
+<tr>
+  <td><code style="color:#1a8c00;font-size:.75rem">${escapeHtml(p.stripe_id)}</code></td>
+  <td><span style="color:#33ff00;font-weight:600">${cents(p.amount, p.currency)}</span></td>
+  <td>${statusBadge(p.status)}</td>
+  <td style="color:#1a8c00;font-size:.75rem">${escapeHtml(p.method)}</td>
+  <td style="color:#1a8c00;font-size:.75rem">${unixDate(p.arrival_date)}</td>
+</tr>`;
+              })
+              .join("");
+
+      bodyHtml = `
+<div class="inspector-section">
+  <h2>Payouts</h2>
+  <table class="inspector-table">
+    <thead><tr><th>ID</th><th>Amount</th><th>Status</th><th>Method</th><th>Arrival</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>`;
+    }
+
+    const stats = `${customers.length} customers · ${subscriptions.length} subscriptions · ${paymentIntents.length} payments · ${accounts.length} connected accounts`;
     return c.html(
       renderSettingsPage(
         "Stripe Inspector",

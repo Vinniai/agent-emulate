@@ -457,6 +457,539 @@ describe("Stripe plugin", () => {
     });
   });
 
+  describe("connect — accounts", () => {
+    it("creates and retrieves a connected account with requested capabilities", async () => {
+      const res = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          type: "express",
+          country: "US",
+          email: "merchant@agent-emulate.dev",
+          capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+        }),
+      });
+      expect(res.status).toBe(200);
+      const account = (await res.json()) as {
+        id: string;
+        object: string;
+        type: string;
+        charges_enabled: boolean;
+        payouts_enabled: boolean;
+        capabilities: Record<string, string>;
+        requirements: { currently_due: string[] };
+      };
+      expect(account.id).toMatch(/^acct_/);
+      expect(account.object).toBe("account");
+      expect(account.type).toBe("express");
+      expect(account.charges_enabled).toBe(true);
+      expect(account.payouts_enabled).toBe(true);
+      expect(account.capabilities.card_payments).toBe("active");
+      expect(account.requirements.currently_due).toEqual([]);
+
+      const getRes = await app.request(`${base}/v1/accounts/${account.id}`, { headers: auth() });
+      expect(getRes.status).toBe(200);
+      const fetched = (await getRes.json()) as { id: string };
+      expect(fetched.id).toBe(account.id);
+    });
+
+    it("defaults to a standard account with no capabilities", async () => {
+      const res = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({}),
+      });
+      const account = (await res.json()) as { type: string; charges_enabled: boolean; capabilities: object };
+      expect(account.type).toBe("standard");
+      expect(account.charges_enabled).toBe(false);
+      expect(account.capabilities).toEqual({});
+    });
+
+    it("rejects an invalid business_type", async () => {
+      const res = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ business_type: "alien" }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { param: string } };
+      expect(body.error.param).toBe("business_type");
+    });
+
+    it("updates an account and grants capabilities", async () => {
+      const createRes = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ type: "custom" }),
+      });
+      const account = (await createRes.json()) as { id: string };
+
+      const updateRes = await app.request(`${base}/v1/accounts/${account.id}`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ capabilities: { card_payments: { requested: true } }, email: "new@agent-emulate.dev" }),
+      });
+      const updated = (await updateRes.json()) as {
+        email: string;
+        charges_enabled: boolean;
+        capabilities: Record<string, string>;
+      };
+      expect(updated.email).toBe("new@agent-emulate.dev");
+      expect(updated.charges_enabled).toBe(true);
+      expect(updated.capabilities.card_payments).toBe("active");
+    });
+
+    it("deletes an account", async () => {
+      const createRes = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ type: "express" }),
+      });
+      const account = (await createRes.json()) as { id: string };
+
+      const delRes = await app.request(`${base}/v1/accounts/${account.id}`, { method: "DELETE", headers: auth() });
+      const deleted = (await delRes.json()) as { deleted: boolean; object: string };
+      expect(deleted.deleted).toBe(true);
+      expect(deleted.object).toBe("account");
+
+      const getRes = await app.request(`${base}/v1/accounts/${account.id}`, { headers: auth() });
+      expect(getRes.status).toBe(404);
+    });
+  });
+
+  describe("connect — account links", () => {
+    it("creates an account link for an onboarding flow", async () => {
+      const acctRes = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ type: "express" }),
+      });
+      const account = (await acctRes.json()) as { id: string };
+
+      const res = await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          account: account.id,
+          refresh_url: "https://agent-emulate.dev/reauth",
+          return_url: "https://agent-emulate.dev/return",
+          type: "account_onboarding",
+        }),
+      });
+      expect(res.status).toBe(200);
+      const link = (await res.json()) as { object: string; url: string; created: number; expires_at: number };
+      expect(link.object).toBe("account_link");
+      expect(link.url).toContain(account.id);
+      expect(link.expires_at).toBeGreaterThan(link.created);
+    });
+
+    it("rejects an invalid account link type", async () => {
+      const acctRes = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ type: "express" }),
+      });
+      const account = (await acctRes.json()) as { id: string };
+
+      const res = await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ account: account.id, type: "bogus" }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { param: string } };
+      expect(body.error.param).toBe("type");
+    });
+
+    it("rejects an account link for a nonexistent account", async () => {
+      const res = await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ account: "acct_nonexistent", type: "account_onboarding" }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("resource_missing");
+    });
+  });
+
+  describe("connect — transfers", () => {
+    async function makeAccount(): Promise<string> {
+      const res = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ type: "express", capabilities: { transfers: { requested: true } } }),
+      });
+      return ((await res.json()) as { id: string }).id;
+    }
+
+    it("creates a transfer to a connected account", async () => {
+      const destination = await makeAccount();
+      const res = await app.request(`${base}/v1/transfers`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 1000, currency: "usd", destination, transfer_group: "ORDER_1" }),
+      });
+      expect(res.status).toBe(200);
+      const transfer = (await res.json()) as {
+        id: string;
+        object: string;
+        amount: number;
+        destination: string;
+        reversed: boolean;
+        reversals: { object: string; total_count: number };
+      };
+      expect(transfer.id).toMatch(/^tr_/);
+      expect(transfer.object).toBe("transfer");
+      expect(transfer.amount).toBe(1000);
+      expect(transfer.destination).toBe(destination);
+      expect(transfer.reversed).toBe(false);
+      expect(transfer.reversals.object).toBe("list");
+      expect(transfer.reversals.total_count).toBe(0);
+    });
+
+    it("rejects a transfer to a nonexistent destination", async () => {
+      const res = await app.request(`${base}/v1/transfers`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 500, currency: "usd", destination: "acct_nope" }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { param: string; code: string } };
+      expect(body.error.param).toBe("destination");
+      expect(body.error.code).toBe("resource_missing");
+    });
+
+    it("reverses a transfer fully and partially", async () => {
+      const destination = await makeAccount();
+      const createRes = await app.request(`${base}/v1/transfers`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 1000, currency: "usd", destination }),
+      });
+      const transfer = (await createRes.json()) as { id: string };
+
+      // Partial reversal
+      const partialRes = await app.request(`${base}/v1/transfers/${transfer.id}/reversals`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 400 }),
+      });
+      expect(partialRes.status).toBe(200);
+      const reversal = (await partialRes.json()) as { id: string; object: string; amount: number; transfer: string };
+      expect(reversal.id).toMatch(/^trr_/);
+      expect(reversal.object).toBe("transfer_reversal");
+      expect(reversal.amount).toBe(400);
+      expect(reversal.transfer).toBe(transfer.id);
+
+      // Transfer now shows partial reversal
+      const afterPartial = await app.request(`${base}/v1/transfers/${transfer.id}`, { headers: auth() });
+      const tp = (await afterPartial.json()) as { amount_reversed: number; reversed: boolean };
+      expect(tp.amount_reversed).toBe(400);
+      expect(tp.reversed).toBe(false);
+
+      // Reverse the remainder (default amount = remaining)
+      const fullRes = await app.request(`${base}/v1/transfers/${transfer.id}/reversals`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({}),
+      });
+      expect(fullRes.status).toBe(200);
+
+      const afterFull = await app.request(`${base}/v1/transfers/${transfer.id}`, { headers: auth() });
+      const tf = (await afterFull.json()) as {
+        amount_reversed: number;
+        reversed: boolean;
+        reversals: { total_count: number };
+      };
+      expect(tf.amount_reversed).toBe(1000);
+      expect(tf.reversed).toBe(true);
+      expect(tf.reversals.total_count).toBe(2);
+    });
+
+    it("rejects an over-reversal", async () => {
+      const destination = await makeAccount();
+      const createRes = await app.request(`${base}/v1/transfers`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 100, currency: "usd", destination }),
+      });
+      const transfer = (await createRes.json()) as { id: string };
+
+      const res = await app.request(`${base}/v1/transfers/${transfer.id}/reversals`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 200 }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { param: string } };
+      expect(body.error.param).toBe("amount");
+    });
+
+    it("filters transfers by destination", async () => {
+      const destination = await makeAccount();
+      await app.request(`${base}/v1/transfers`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 250, currency: "usd", destination }),
+      });
+      const res = await app.request(`${base}/v1/transfers?destination=${destination}`, { headers: auth() });
+      const body = (await res.json()) as { data: Array<{ destination: string }> };
+      expect(body.data.length).toBeGreaterThanOrEqual(1);
+      expect(body.data.every((t) => t.destination === destination)).toBe(true);
+    });
+  });
+
+  describe("connect — payouts", () => {
+    it("creates a payout in pending status", async () => {
+      const res = await app.request(`${base}/v1/payouts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 5000, currency: "usd" }),
+      });
+      expect(res.status).toBe(200);
+      const payout = (await res.json()) as {
+        id: string;
+        object: string;
+        status: string;
+        method: string;
+        type: string;
+        created: number;
+        arrival_date: number;
+        reconciliation_status: string;
+      };
+      expect(payout.id).toMatch(/^po_/);
+      expect(payout.object).toBe("payout");
+      expect(payout.status).toBe("pending");
+      expect(payout.method).toBe("standard");
+      expect(payout.type).toBe("bank_account");
+      expect(payout.reconciliation_status).toBe("not_applicable");
+      expect(payout.arrival_date).toBeGreaterThan(payout.created);
+    });
+
+    it("cancels a pending payout", async () => {
+      const createRes = await app.request(`${base}/v1/payouts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 1000, currency: "usd" }),
+      });
+      const payout = (await createRes.json()) as { id: string };
+
+      const cancelRes = await app.request(`${base}/v1/payouts/${payout.id}/cancel`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({}),
+      });
+      expect(cancelRes.status).toBe(200);
+      const canceled = (await cancelRes.json()) as { status: string };
+      expect(canceled.status).toBe("canceled");
+
+      // Cannot cancel twice
+      const again = await app.request(`${base}/v1/payouts/${payout.id}/cancel`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({}),
+      });
+      expect(again.status).toBe(400);
+      const body = (await again.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("payout_not_cancelable");
+    });
+
+    it("requires amount and currency", async () => {
+      const res = await app.request(`${base}/v1/payouts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ currency: "usd" }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { param: string } };
+      expect(body.error.param).toBe("amount");
+    });
+
+    it("filters payouts by status", async () => {
+      await app.request(`${base}/v1/payouts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ amount: 100, currency: "usd" }),
+      });
+      const res = await app.request(`${base}/v1/payouts?status=pending`, { headers: auth() });
+      const body = (await res.json()) as { data: Array<{ status: string }> };
+      expect(body.data.every((p) => p.status === "pending")).toBe(true);
+    });
+  });
+
+  describe("connect — hosted onboarding", () => {
+    async function makeExpressAccount(): Promise<string> {
+      const res = await app.request(`${base}/v1/accounts`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({ type: "express" }),
+      });
+      return ((await res.json()) as { id: string }).id;
+    }
+
+    it("points the account link at the emulator-hosted onboarding page", async () => {
+      const acct = await makeExpressAccount();
+      const linkRes = await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          account: acct,
+          refresh_url: "https://agent-emulate.dev/reauth",
+          return_url: "https://agent-emulate.dev/return",
+          type: "account_onboarding",
+        }),
+      });
+      const link = (await linkRes.json()) as { url: string };
+      expect(link.url).toBe(`${base}/connect/onboard?acct=${acct}`);
+    });
+
+    it("renders the hosted onboarding page", async () => {
+      const acct = await makeExpressAccount();
+      await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          account: acct,
+          return_url: "https://agent-emulate.dev/return",
+          type: "account_onboarding",
+        }),
+      });
+
+      const pageRes = await app.request(`${base}/connect/onboard?acct=${acct}`);
+      expect(pageRes.status).toBe(200);
+      const html = await pageRes.text();
+      expect(html).toContain("Complete onboarding");
+      expect(html).toContain("/connect/onboard/complete");
+    });
+
+    it("completes onboarding, flips the flags, and redirects to return_url", async () => {
+      const acct = await makeExpressAccount();
+      await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          account: acct,
+          return_url: "https://agent-emulate.dev/return",
+          type: "account_onboarding",
+        }),
+      });
+
+      const completeRes = await app.request(`${base}/connect/onboard/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `acct=${acct}`,
+      });
+      expect(completeRes.status).toBe(302);
+      expect(completeRes.headers.get("location")).toBe("https://agent-emulate.dev/return");
+
+      const accountRes = await app.request(`${base}/v1/accounts/${acct}`, { headers: auth() });
+      const account = (await accountRes.json()) as {
+        charges_enabled: boolean;
+        payouts_enabled: boolean;
+        details_submitted: boolean;
+        capabilities: Record<string, string>;
+      };
+      expect(account.charges_enabled).toBe(true);
+      expect(account.payouts_enabled).toBe(true);
+      expect(account.details_submitted).toBe(true);
+      expect(account.capabilities.card_payments).toBe("active");
+      expect(account.capabilities.transfers).toBe("active");
+    });
+
+    it("skips onboarding, leaving the account incomplete, and redirects to return_url", async () => {
+      const acct = await makeExpressAccount();
+      await app.request(`${base}/v1/account_links`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          account: acct,
+          return_url: "https://agent-emulate.dev/return",
+          type: "account_onboarding",
+        }),
+      });
+
+      const skipRes = await app.request(`${base}/connect/onboard/skip?acct=${acct}`);
+      expect(skipRes.status).toBe(302);
+      expect(skipRes.headers.get("location")).toBe("https://agent-emulate.dev/return");
+
+      const accountRes = await app.request(`${base}/v1/accounts/${acct}`, { headers: auth() });
+      const account = (await accountRes.json()) as { charges_enabled: boolean; details_submitted: boolean };
+      expect(account.charges_enabled).toBe(false);
+      expect(account.details_submitted).toBe(false);
+    });
+
+    it("renders a not-found page for an unknown account", async () => {
+      const pageRes = await app.request(`${base}/connect/onboard?acct=acct_nonexistent`);
+      expect(pageRes.status).toBe(404);
+    });
+  });
+
+  describe("checkout — inline price_data", () => {
+    it("creates a session from inline price_data", async () => {
+      const res = await app.request(`${base}/v1/checkout/sessions`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          mode: "payment",
+          success_url: "https://agent-emulate.dev/success",
+          line_items: [
+            {
+              quantity: 2,
+              price_data: {
+                currency: "usd",
+                unit_amount: 1500,
+                product_data: { name: "Ad-hoc Widget" },
+              },
+            },
+          ],
+        }),
+      });
+      expect(res.status).toBe(200);
+      const session = (await res.json()) as { id: string; status: string; url: string };
+      expect(session.id).toMatch(/^cs_/);
+      expect(session.status).toBe("open");
+
+      // The hosted checkout page should render the ad-hoc line item.
+      const pageRes = await app.request(`${base}/checkout/${session.id}`);
+      expect(pageRes.status).toBe(200);
+      const html = await pageRes.text();
+      expect(html).toContain("Ad-hoc Widget");
+    });
+
+    it("rejects inline price_data missing unit_amount", async () => {
+      const res = await app.request(`${base}/v1/checkout/sessions`, {
+        method: "POST",
+        headers: auth(),
+        body: JSON.stringify({
+          mode: "payment",
+          line_items: [{ quantity: 1, price_data: { currency: "usd", product_data: { name: "Bad" } } }],
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { param: string } };
+      expect(body.error.param).toBe("line_items[0][price_data][unit_amount]");
+    });
+  });
+
+  describe("invoices", () => {
+    it("returns an empty list", async () => {
+      const res = await app.request(`${base}/v1/invoices`, { headers: auth() });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { object: string; data: unknown[]; has_more: boolean };
+      expect(body.object).toBe("list");
+      expect(body.data).toEqual([]);
+      expect(body.has_more).toBe(false);
+    });
+
+    it("returns a 404 for a specific invoice", async () => {
+      const res = await app.request(`${base}/v1/invoices/in_nonexistent`, { headers: auth() });
+      expect(res.status).toBe(404);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("resource_missing");
+    });
+  });
+
   describe("seed", () => {
     it("seeds customers and products from config", async () => {
       const store = new Store();

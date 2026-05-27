@@ -160,6 +160,9 @@ export interface GoogleDriveItem extends Entity {
   size: number | null;
   trashed: boolean;
   data: string | null;
+  // Optional seeded modified time. When set it wins over the auto `updated_at`
+  // stamp so a seeded file reports its real modifiedTime, not insertion time.
+  modified_time: string | null;
 }
 
 export interface GoogleDrivePermission extends Entity {
