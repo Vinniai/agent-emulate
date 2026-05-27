@@ -8,6 +8,10 @@ import type {
   StripeCheckoutSession,
   StripeSubscription,
   StripeSubscriptionItem,
+  StripeAccount,
+  StripeTransfer,
+  StripeTransferReversal,
+  StripePayout,
 } from "./entities.js";
 
 export interface StripeStore {
@@ -19,6 +23,10 @@ export interface StripeStore {
   checkoutSessions: Collection<StripeCheckoutSession>;
   subscriptions: Collection<StripeSubscription>;
   subscriptionItems: Collection<StripeSubscriptionItem>;
+  accounts: Collection<StripeAccount>;
+  transfers: Collection<StripeTransfer>;
+  transferReversals: Collection<StripeTransferReversal>;
+  payouts: Collection<StripePayout>;
 }
 
 export function getStripeStore(store: Store): StripeStore {
@@ -34,5 +42,12 @@ export function getStripeStore(store: Store): StripeStore {
       "stripe_id",
       "subscription_id",
     ]),
+    accounts: store.collection<StripeAccount>("stripe.accounts", ["stripe_id"]),
+    transfers: store.collection<StripeTransfer>("stripe.transfers", ["stripe_id", "destination", "transfer_group"]),
+    transferReversals: store.collection<StripeTransferReversal>("stripe.transfer_reversals", [
+      "stripe_id",
+      "transfer_id",
+    ]),
+    payouts: store.collection<StripePayout>("stripe.payouts", ["stripe_id"]),
   };
 }

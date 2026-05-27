@@ -93,3 +93,71 @@ export interface StripeSubscriptionItem extends Entity {
   quantity: number;
   metadata: Record<string, string>;
 }
+
+// ── Connect ────────────────────────────────────────────────────────────────
+
+export type AccountType = "standard" | "express" | "custom";
+export type AccountBusinessType = "individual" | "company" | "non_profit" | "government_entity";
+export type CapabilityStatus = "active" | "inactive" | "pending";
+
+export interface StripeAccount extends Entity {
+  stripe_id: string;
+  type: AccountType;
+  country: string;
+  default_currency: string;
+  email: string | null;
+  business_type: AccountBusinessType | null;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  capabilities: Record<string, CapabilityStatus>;
+  // Redirect targets stashed by the most recent account link, used by the
+  // emulator's hosted onboarding page to send the browser back when finished.
+  onboarding_return_url: string | null;
+  onboarding_refresh_url: string | null;
+  metadata: Record<string, string>;
+}
+
+export interface StripeTransfer extends Entity {
+  stripe_id: string;
+  amount: number;
+  currency: string;
+  destination: string | null;
+  description: string | null;
+  source_transaction: string | null;
+  source_type: string | null;
+  transfer_group: string | null;
+  amount_reversed: number;
+  reversed: boolean;
+  metadata: Record<string, string>;
+}
+
+export interface StripeTransferReversal extends Entity {
+  stripe_id: string;
+  transfer_id: string;
+  amount: number;
+  currency: string;
+  metadata: Record<string, string>;
+}
+
+export type PayoutStatus = "paid" | "pending" | "in_transit" | "canceled" | "failed";
+export type PayoutMethod = "standard" | "instant";
+export type PayoutType = "bank_account" | "card";
+
+export interface StripePayout extends Entity {
+  stripe_id: string;
+  amount: number;
+  currency: string;
+  status: PayoutStatus;
+  description: string | null;
+  destination: string | null;
+  method: PayoutMethod;
+  type: PayoutType;
+  source_type: string;
+  statement_descriptor: string | null;
+  automatic: boolean;
+  arrival_date: number;
+  original_payout: string | null;
+  reversed_by: string | null;
+  metadata: Record<string, string>;
+}
