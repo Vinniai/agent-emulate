@@ -4,6 +4,11 @@ import { getAwsStore } from "../store.js";
 import {
   awsXmlResponse,
   awsErrorXml,
+  awsJsonResponse,
+  awsJsonError,
+  readJsonBody,
+  strInput,
+  numInput,
   generateMessageId,
   generateReceiptHandle,
   md5,
@@ -17,8 +22,12 @@ export function sqsRoutes(ctx: RouteContext): void {
   const aws = () => getAwsStore(store);
   const accountId = getAccountId();
 
-  // All SQS actions go through POST with Action parameter
-  app.post("/sqs/", async (c) => {
+  // All SQS actions go through POST with an Action parameter (AWS query
+  // protocol → XML). Modern clients (AWS CLI v2, SDK v3) instead use the AWS
+  // JSON protocol, tagging the operation with an `X-Amz-Target: AmazonSQS.*`
+  // header; delegate those to the JSON dispatcher below.
+  const sqsPathHandler = async (c: Context) => {
+    if ((c.req.header("X-Amz-Target") ?? "").startsWith("AmazonSQS.")) return jsonDispatch(c);
     const body = await c.req.text();
     const params = parseQueryString(body);
     const action = params["Action"] ?? c.req.query("Action") ?? "";
@@ -45,7 +54,183 @@ export function sqsRoutes(ctx: RouteContext): void {
       default:
         return awsErrorXml(c, "InvalidAction", `The action ${action} is not valid for this endpoint.`, 400);
     }
+  };
+  app.post("/sqs/", sqsPathHandler);
+
+  // --- AWS JSON protocol (AWS CLI v2 / SDK v3) ---
+  // These clients POST to the bare endpoint root with a JSON body and an
+  // `X-Amz-Target: AmazonSQS.<Action>` header, and expect a JSON reply.
+  const queueNotFound = (c: Context) =>
+    awsJsonError(c, "QueueDoesNotExist", "The specified queue does not exist.", 400);
+
+  const jsonHandlers: Record<string, (c: Context, input: Record<string, unknown>) => Response | Promise<Response>> = {
+    CreateQueue: (c, input) => {
+      const queueName = strInput(input, "QueueName");
+      if (!queueName) return awsJsonError(c, "InvalidParameterValueException", "QueueName is required.", 400);
+      const existing = aws().sqsQueues.findOneBy("queue_name", queueName);
+      if (existing) return awsJsonResponse(c, { QueueUrl: existing.queue_url });
+      const attrs = (input["Attributes"] as Record<string, string>) ?? {};
+      const queueUrl = `${baseUrl}/sqs/${accountId}/${queueName}`;
+      aws().sqsQueues.insert({
+        queue_name: queueName,
+        queue_url: queueUrl,
+        arn: `arn:aws:sqs:us-east-1:${accountId}:${queueName}`,
+        visibility_timeout: parseInt(attrs["VisibilityTimeout"] ?? "30", 10),
+        delay_seconds: parseInt(attrs["DelaySeconds"] ?? "0", 10),
+        max_message_size: parseInt(attrs["MaximumMessageSize"] ?? "262144", 10),
+        message_retention_period: parseInt(attrs["MessageRetentionPeriod"] ?? "345600", 10),
+        receive_message_wait_time: parseInt(attrs["ReceiveMessageWaitTimeSeconds"] ?? "0", 10),
+        fifo: queueName.endsWith(".fifo"),
+      });
+      return awsJsonResponse(c, { QueueUrl: queueUrl });
+    },
+    DeleteQueue: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_url", strInput(input, "QueueUrl"));
+      if (!queue) return queueNotFound(c);
+      for (const m of aws().sqsMessages.findBy("queue_name", queue.queue_name)) aws().sqsMessages.delete(m.id);
+      aws().sqsQueues.delete(queue.id);
+      return awsJsonResponse(c, {});
+    },
+    ListQueues: (c, input) => {
+      const prefix = strInput(input, "QueueNamePrefix");
+      const urls = aws()
+        .sqsQueues.all()
+        .filter((q) => !prefix || q.queue_name.startsWith(prefix))
+        .map((q) => q.queue_url);
+      return awsJsonResponse(c, urls.length ? { QueueUrls: urls } : {});
+    },
+    GetQueueUrl: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_name", strInput(input, "QueueName"));
+      if (!queue) return queueNotFound(c);
+      return awsJsonResponse(c, { QueueUrl: queue.queue_url });
+    },
+    GetQueueAttributes: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_url", strInput(input, "QueueUrl"));
+      if (!queue) return queueNotFound(c);
+      const messages = aws().sqsMessages.findBy("queue_name", queue.queue_name);
+      const now = Date.now();
+      const all: Record<string, string> = {
+        QueueArn: queue.arn,
+        ApproximateNumberOfMessages: String(messages.filter((m) => m.visible_after <= now).length),
+        ApproximateNumberOfMessagesNotVisible: String(messages.filter((m) => m.visible_after > now).length),
+        VisibilityTimeout: String(queue.visibility_timeout),
+        MaximumMessageSize: String(queue.max_message_size),
+        MessageRetentionPeriod: String(queue.message_retention_period),
+        DelaySeconds: String(queue.delay_seconds),
+        ReceiveMessageWaitTimeSeconds: String(queue.receive_message_wait_time),
+        FifoQueue: String(queue.fifo),
+      };
+      const requested = (input["AttributeNames"] as string[]) ?? ["All"];
+      const wantAll = requested.includes("All");
+      const attributes = wantAll
+        ? all
+        : Object.fromEntries(Object.entries(all).filter(([k]) => requested.includes(k)));
+      return awsJsonResponse(c, { Attributes: attributes });
+    },
+    SendMessage: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_url", strInput(input, "QueueUrl"));
+      if (!queue) return queueNotFound(c);
+      const messageBody = strInput(input, "MessageBody");
+      if (!messageBody) return awsJsonError(c, "MissingParameter", "MessageBody is required.", 400);
+      if (new TextEncoder().encode(messageBody).byteLength > queue.max_message_size) {
+        return awsJsonError(
+          c,
+          "InvalidParameterValueException",
+          `Message must be shorter than ${queue.max_message_size} bytes.`,
+          400,
+        );
+      }
+      const messageId = generateMessageId();
+      const bodyMd5 = md5(messageBody);
+      const now = Date.now();
+      const messageAttributes = (input["MessageAttributes"] as Record<
+        string,
+        { DataType: string; StringValue?: string; BinaryValue?: string }
+      >) ?? {};
+      aws().sqsMessages.insert({
+        queue_name: queue.queue_name,
+        message_id: messageId,
+        receipt_handle: generateReceiptHandle(),
+        body: messageBody,
+        md5_of_body: bodyMd5,
+        attributes: {
+          SentTimestamp: String(now),
+          ApproximateReceiveCount: "0",
+          ApproximateFirstReceiveTimestamp: "",
+          SenderId: getAccountId(),
+        },
+        message_attributes: messageAttributes,
+        visible_after: now + queue.delay_seconds * 1000,
+        sent_timestamp: now,
+        receive_count: 0,
+      });
+      return awsJsonResponse(c, { MessageId: messageId, MD5OfMessageBody: bodyMd5 });
+    },
+    ReceiveMessage: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_url", strInput(input, "QueueUrl"));
+      if (!queue) return queueNotFound(c);
+      const maxMessages = Math.min(numInput(input, "MaxNumberOfMessages") ?? 1, 10);
+      const visTimeout = numInput(input, "VisibilityTimeout");
+      const timeout = visTimeout ?? queue.visibility_timeout;
+      const now = Date.now();
+      const batch = aws()
+        .sqsMessages.findBy("queue_name", queue.queue_name)
+        .filter((m) => m.visible_after <= now)
+        .slice(0, maxMessages);
+      const messages = batch.map((m) => {
+        const receiptHandle = generateReceiptHandle();
+        aws().sqsMessages.update(m.id, {
+          receipt_handle: receiptHandle,
+          visible_after: now + timeout * 1000,
+          receive_count: m.receive_count + 1,
+        });
+        return {
+          MessageId: m.message_id,
+          ReceiptHandle: receiptHandle,
+          MD5OfBody: m.md5_of_body,
+          Body: m.body,
+          Attributes: {
+            SentTimestamp: String(m.sent_timestamp),
+            ApproximateReceiveCount: String(m.receive_count + 1),
+            ApproximateFirstReceiveTimestamp: String(m.sent_timestamp),
+          },
+        };
+      });
+      return awsJsonResponse(c, messages.length ? { Messages: messages } : {});
+    },
+    DeleteMessage: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_url", strInput(input, "QueueUrl"));
+      if (!queue) return queueNotFound(c);
+      const receiptHandle = strInput(input, "ReceiptHandle");
+      const msg = aws()
+        .sqsMessages.findBy("queue_name", queue.queue_name)
+        .find((m) => m.receipt_handle === receiptHandle);
+      if (msg) aws().sqsMessages.delete(msg.id);
+      return awsJsonResponse(c, {});
+    },
+    PurgeQueue: (c, input) => {
+      const queue = aws().sqsQueues.findOneBy("queue_url", strInput(input, "QueueUrl"));
+      if (!queue) return queueNotFound(c);
+      for (const m of aws().sqsMessages.findBy("queue_name", queue.queue_name)) aws().sqsMessages.delete(m.id);
+      return awsJsonResponse(c, {});
+    },
+  };
+
+  const jsonDispatch = async (c: Context) => {
+    const target = c.req.header("X-Amz-Target") ?? "";
+    const action = target.slice(target.lastIndexOf(".") + 1);
+    const handler = jsonHandlers[action];
+    if (!handler) return awsJsonError(c, "UnknownOperationException", `sqs.${action} is not supported.`, 400);
+    return handler(c, await readJsonBody(c));
+  };
+
+  // Bare-root dispatch for AWS CLI v2 / SDK v3 (which POST to `/`), plus `/sqs`
+  // for SDK v3 pointed at `${url}/sqs`. The query-protocol XML path stays at `/sqs/`.
+  app.post("/", async (c, next) => {
+    if (!(c.req.header("X-Amz-Target") ?? "").startsWith("AmazonSQS.")) return next();
+    return jsonDispatch(c);
   });
+  app.post("/sqs", sqsPathHandler);
 
   function createQueue(c: Context, params: Record<string, string>) {
     const queueName = params["QueueName"] ?? "";
