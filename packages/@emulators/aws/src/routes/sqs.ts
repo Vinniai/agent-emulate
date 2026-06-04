@@ -122,9 +122,7 @@ export function sqsRoutes(ctx: RouteContext): void {
       };
       const requested = (input["AttributeNames"] as string[]) ?? ["All"];
       const wantAll = requested.includes("All");
-      const attributes = wantAll
-        ? all
-        : Object.fromEntries(Object.entries(all).filter(([k]) => requested.includes(k)));
+      const attributes = wantAll ? all : Object.fromEntries(Object.entries(all).filter(([k]) => requested.includes(k)));
       return awsJsonResponse(c, { Attributes: attributes });
     },
     SendMessage: (c, input) => {
@@ -143,10 +141,11 @@ export function sqsRoutes(ctx: RouteContext): void {
       const messageId = generateMessageId();
       const bodyMd5 = md5(messageBody);
       const now = Date.now();
-      const messageAttributes = (input["MessageAttributes"] as Record<
-        string,
-        { DataType: string; StringValue?: string; BinaryValue?: string }
-      >) ?? {};
+      const messageAttributes =
+        (input["MessageAttributes"] as Record<
+          string,
+          { DataType: string; StringValue?: string; BinaryValue?: string }
+        >) ?? {};
       aws().sqsMessages.insert({
         queue_name: queue.queue_name,
         message_id: messageId,
