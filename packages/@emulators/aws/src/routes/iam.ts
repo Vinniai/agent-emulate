@@ -9,20 +9,22 @@ import {
   getAccountId,
   parseQueryString,
   escapeXml,
+  credentialScopeService,
 } from "../helpers.js";
 import { randomBytes } from "crypto";
+
+// IAM and STS both use the AWS query protocol (form-encoded `Action`, XML
+// reply). The CLI v2 / SDK v3 post these to the bare endpoint root and only
+// the SigV4 credential scope (or the API Version) tells them apart, so these
+// action sets are the fallback disambiguator for unsigned root requests.
+const STS_ACTIONS = new Set(["GetCallerIdentity", "AssumeRole"]);
 
 export function iamRoutes(ctx: RouteContext): void {
   const { app, store } = ctx;
   const aws = () => getAwsStore(store);
   const accountId = getAccountId();
 
-  // IAM actions via POST with Action parameter
-  app.post("/iam/", async (c) => {
-    const body = await c.req.text();
-    const params = parseQueryString(body);
-    const action = params["Action"] ?? c.req.query("Action") ?? "";
-
+  function dispatchIam(c: Context, action: string, params: Record<string, string>) {
     switch (action) {
       case "CreateUser":
         return createUser(c, params);
@@ -49,14 +51,9 @@ export function iamRoutes(ctx: RouteContext): void {
       default:
         return awsErrorXml(c, "InvalidAction", `The action ${action} is not valid for this endpoint.`, 400);
     }
-  });
+  }
 
-  // STS endpoints
-  app.post("/sts/", async (c) => {
-    const body = await c.req.text();
-    const params = parseQueryString(body);
-    const action = params["Action"] ?? c.req.query("Action") ?? "";
-
+  function dispatchSts(c: Context, action: string, params: Record<string, string>) {
     switch (action) {
       case "GetCallerIdentity":
         return getCallerIdentity(c);
@@ -65,6 +62,50 @@ export function iamRoutes(ctx: RouteContext): void {
       default:
         return awsErrorXml(c, "InvalidAction", `The action ${action} is not valid for this endpoint.`, 400);
     }
+  }
+
+  async function readForm(c: Context): Promise<{ action: string; params: Record<string, string> }> {
+    const params = parseQueryString(await c.req.text());
+    return { action: params["Action"] ?? c.req.query("Action") ?? "", params };
+  }
+
+  // IAM actions via POST with Action parameter. `/iam` (no trailing slash) is
+  // what SDK v3 sends when pointed at `${url}/iam`; `/iam/` is the legacy/curl form.
+  const iamHandler = async (c: Context) => {
+    const { action, params } = await readForm(c);
+    return dispatchIam(c, action, params);
+  };
+  app.post("/iam", iamHandler);
+  app.post("/iam/", iamHandler);
+
+  // STS endpoints (same two-path treatment).
+  const stsHandler = async (c: Context) => {
+    const { action, params } = await readForm(c);
+    return dispatchSts(c, action, params);
+  };
+  app.post("/sts", stsHandler);
+  app.post("/sts/", stsHandler);
+
+  // Bare-root dispatch for the AWS CLI v2 / SDK v3, which post every request to
+  // `/`. JSON-RPC services (KMS, SQS, …) carry an `X-Amz-Target` header and are
+  // handled by their own root dispatchers, so skip those here and only claim
+  // form-encoded query-protocol requests, routing IAM vs STS by credential
+  // scope, then API Version, then the known action set.
+  app.post("/", async (c, next) => {
+    if (c.req.header("X-Amz-Target")) return next();
+    const ct = c.req.header("Content-Type") ?? "";
+    if (!ct.includes("x-www-form-urlencoded")) return next();
+    const { action, params } = await readForm(c);
+    if (!action) return next();
+    const svc = credentialScopeService(c);
+    const version = params["Version"] ?? "";
+    if (svc === "sts" || version === "2011-06-15" || (svc === undefined && STS_ACTIONS.has(action))) {
+      return dispatchSts(c, action, params);
+    }
+    if (svc === "iam" || version === "2010-05-08" || svc === undefined) {
+      return dispatchIam(c, action, params);
+    }
+    return next();
   });
 
   function createUser(c: Context, params: Record<string, string>) {

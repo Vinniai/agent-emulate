@@ -69,6 +69,21 @@ export function parseQueryString(body: string): Record<string, string> {
   return result;
 }
 
+/**
+ * The AWS CLI v2 and SDK v3 post every request to the bare endpoint root
+ * (`POST /`) and identify the target service only by the SigV4 credential
+ * scope in the `Authorization` header
+ * (`Credential=AK.../<date>/<region>/<service>/aws4_request`). Extract that
+ * `<service>` token (e.g. `iam`, `sts`, `sqs`, `s3`) so a root dispatcher can
+ * route query-protocol services that otherwise share the form-encoded shape.
+ * Returns undefined for unsigned requests (e.g. curl without SigV4).
+ */
+export function credentialScopeService(c: Context): string | undefined {
+  const auth = c.req.header("Authorization") ?? "";
+  const m = auth.match(/\/\d{8}\/[^/]+\/([^/]+)\/aws4_request/);
+  return m ? m[1] : undefined;
+}
+
 // --- AWS JSON 1.1 protocol (KMS, Secrets Manager, SSM, Lambda) ---
 
 const JSON_CONTENT_TYPE = "application/x-amz-json-1.1";
