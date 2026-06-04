@@ -24,10 +24,7 @@ export function modelsRoutes({ app }: RouteContext): void {
     const id = c.req.param("model");
     const model = ANTHROPIC_MODELS.find((m) => m.id === id);
     if (!model) {
-      return c.json(
-        { type: "error", error: { type: "not_found_error", message: `model: ${id}` } },
-        404,
-      );
+      return c.json({ type: "error", error: { type: "not_found_error", message: `model: ${id}` } }, 404);
     }
     return c.json({
       type: "model",

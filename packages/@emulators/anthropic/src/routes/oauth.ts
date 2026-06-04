@@ -229,7 +229,8 @@ export function oauthRoutes({ app, store, tokenMap }: RouteContext): void {
   // ---------- Userinfo ----------
   app.get("/oauth/userinfo", (c) => {
     const authUser = c.get("authUser");
-    if (!authUser) return c.json({ type: "error", error: { type: "authentication_error", message: "unauthorized" } }, 401);
+    if (!authUser)
+      return c.json({ type: "error", error: { type: "authentication_error", message: "unauthorized" } }, 401);
     const user = as.users.findOneBy("email", authUser.login as AnthropicUser["email"]);
     if (!user) return c.json({ type: "error", error: { type: "authentication_error", message: "unauthorized" } }, 401);
     return c.json({

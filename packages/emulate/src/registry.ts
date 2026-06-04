@@ -697,8 +697,7 @@ export const SERVICE_REGISTRY: Record<ServiceName, ServiceEntry> = {
       return { plugin: mod.openaiPlugin, seedFromConfig: mod.seedFromConfig };
     },
     defaultFallback(cfg) {
-      const firstEmail =
-        (cfg?.users as Array<{ email?: string }> | undefined)?.[0]?.email ?? "dev@agent-emulate.dev";
+      const firstEmail = (cfg?.users as Array<{ email?: string }> | undefined)?.[0]?.email ?? "dev@agent-emulate.dev";
       return { login: firstEmail, id: 1, scopes: [] };
     },
     initConfig: {
@@ -726,8 +725,7 @@ export const SERVICE_REGISTRY: Record<ServiceName, ServiceEntry> = {
       return { plugin: mod.anthropicPlugin, seedFromConfig: mod.seedFromConfig };
     },
     defaultFallback(cfg) {
-      const firstEmail =
-        (cfg?.users as Array<{ email?: string }> | undefined)?.[0]?.email ?? "dev@agent-emulate.dev";
+      const firstEmail = (cfg?.users as Array<{ email?: string }> | undefined)?.[0]?.email ?? "dev@agent-emulate.dev";
       return { login: firstEmail, id: 1, scopes: [] };
     },
     initConfig: {
