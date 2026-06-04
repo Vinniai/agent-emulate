@@ -64,4 +64,42 @@ describe("createEmulator", () => {
     // @ts-expect-error testing invalid service name
     await expect(createEmulator({ service: "unknown-svc" })).rejects.toThrow("Unknown service");
   });
+
+  it("starts openai and serves the chat completions API", async () => {
+    const openai = await createEmulator({ service: "openai", port: 14030 });
+    expect(openai.url).toBe("http://localhost:14030");
+
+    const res = await fetch(`${openai.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: "Bearer sk-test", "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: "ping" }] }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { object: string; choices: { message: { content: string } }[] };
+    expect(body.object).toBe("chat.completion");
+    expect(body.choices[0].message.content).toContain("ping");
+
+    await openai.close();
+  }, 20000);
+
+  it("starts anthropic and serves the messages API via x-api-key", async () => {
+    const anthropic = await createEmulator({ service: "anthropic", port: 14031 });
+    expect(anthropic.url).toBe("http://localhost:14031");
+
+    const res = await fetch(`${anthropic.url}/v1/messages`, {
+      method: "POST",
+      headers: { "x-api-key": "sk-ant-test", "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 32,
+        messages: [{ role: "user", content: "ping" }],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { type: string; content: { text: string }[] };
+    expect(body.type).toBe("message");
+    expect(body.content[0].text).toContain("ping");
+
+    await anthropic.close();
+  }, 20000);
 });

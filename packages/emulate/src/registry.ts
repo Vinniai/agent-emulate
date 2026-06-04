@@ -38,6 +38,8 @@ const SERVICE_NAME_LIST = [
   "nango",
   "simpro",
   "uptick",
+  "openai",
+  "anthropic",
 ] as const;
 export type ServiceName = (typeof SERVICE_NAME_LIST)[number];
 export const SERVICE_NAMES: readonly ServiceName[] = SERVICE_NAME_LIST;
@@ -682,6 +684,62 @@ export const SERVICE_REGISTRY: Record<ServiceName, ServiceEntry> = {
             last_name: "Tech",
           },
         ],
+      },
+    },
+  },
+
+  openai: {
+    label: "OpenAI API emulator (OAuth + Chat Completions / Responses / Embeddings)",
+    endpoints:
+      "OAuth authorize/callback/token/userinfo, /v1/models, /v1/chat/completions, /v1/responses, /v1/completions, /v1/embeddings (streaming supported)",
+    async load() {
+      const mod = await import("@emulators/openai");
+      return { plugin: mod.openaiPlugin, seedFromConfig: mod.seedFromConfig };
+    },
+    defaultFallback(cfg) {
+      const firstEmail = (cfg?.users as Array<{ email?: string }> | undefined)?.[0]?.email ?? "dev@agent-emulate.dev";
+      return { login: firstEmail, id: 1, scopes: [] };
+    },
+    initConfig: {
+      openai: {
+        users: [{ email: "dev@agent-emulate.dev", name: "Dev User" }],
+        oauth_clients: [
+          {
+            client_id: "openai-test-client",
+            client_secret: "openai-test-secret",
+            name: "My OpenAI App",
+            redirect_uris: ["http://localhost:3000/api/auth/callback/openai"],
+          },
+        ],
+        api_keys: [{ key: "sk-emulate-openai", name: "default" }],
+      },
+    },
+  },
+
+  anthropic: {
+    label: "Anthropic (Claude) API emulator (OAuth + Messages / Token counting)",
+    endpoints:
+      "OAuth authorize/callback/token/userinfo, /v1/models, /v1/messages, /v1/messages/count_tokens, /v1/complete (streaming supported, x-api-key auth)",
+    async load() {
+      const mod = await import("@emulators/anthropic");
+      return { plugin: mod.anthropicPlugin, seedFromConfig: mod.seedFromConfig };
+    },
+    defaultFallback(cfg) {
+      const firstEmail = (cfg?.users as Array<{ email?: string }> | undefined)?.[0]?.email ?? "dev@agent-emulate.dev";
+      return { login: firstEmail, id: 1, scopes: [] };
+    },
+    initConfig: {
+      anthropic: {
+        users: [{ email: "dev@agent-emulate.dev", name: "Dev User" }],
+        oauth_clients: [
+          {
+            client_id: "anthropic-test-client",
+            client_secret: "anthropic-test-secret",
+            name: "My Anthropic App",
+            redirect_uris: ["http://localhost:3000/api/auth/callback/anthropic"],
+          },
+        ],
+        api_keys: [{ key: "sk-ant-emulate", name: "default" }],
       },
     },
   },
