@@ -1,8 +1,22 @@
 # Changelog
 
-## 0.3.0
+## 0.4.0
 
 <!-- release:start -->
+Adds local emulators for the two major LLM providers, and fixes AWS so the real `aws` CLI works across every service.
+
+### New Features
+
+- **OpenAI emulator** (`@emulators/openai`, `agent-emulate --service openai`) — OAuth login flow (authorize → callback → token → userinfo, with PKCE) plus the native API surface: `/v1/models`, `/v1/chat/completions` (with SSE streaming), `/v1/responses` (the Codex surface, with typed streaming events), `/v1/completions`, and `/v1/embeddings` (honoring `encoding_format`). Authenticates with `Authorization: Bearer sk-...`; verified against the official `openai` SDK.
+- **Anthropic (Claude) emulator** (`@emulators/anthropic`, `agent-emulate --service anthropic`) — OAuth login flow plus `/v1/messages` (with Anthropic SSE streaming), `/v1/messages/count_tokens`, `/v1/models`, and `/v1/complete`, authenticating with the native `x-api-key` header. Verified against the official `@anthropic-ai/sdk`. No real model runs — completions are deterministic, prompt-derived canned text, so tests assert on stable output offline.
+
+### Bug Fixes
+
+- **AWS works with the AWS CLI v2 / SDK v3 across all services** — IAM, STS and SQS calls from the AWS CLI/SDK (which POST to the bare endpoint root, routing by SigV4 credential scope and, for SQS, the JSON protocol) previously fell through to the S3 handler and failed with `NoSuchBucket`. Added root dispatch mirroring the existing KMS/SecretsManager/SSM pattern, so `aws s3|sts|iam|sqs … --endpoint-url` all work. The legacy `/iam/`, `/sts/`, `/sqs/` query paths are unchanged.
+<!-- release:end -->
+
+## 0.3.0
+
 Developer-experience release that makes the CLI self-explanatory for agents and fixes provider-themed pages that rendered unreadable text.
 
 ### Improvements
@@ -13,7 +27,6 @@ Developer-experience release that makes the CLI self-explanatory for agents and 
 ### Bug Fixes
 
 - **Readable provider themes** — pages styled after a provider (Google, Vercel, Clerk, Stripe and the rest) re-skinned individual elements but left the rest of the page on the default dark palette, so light themes painted near-white text on white. Themes now redefine the underlying design-token layer, so every page (including the inspector and settings views) recolors correctly and keeps accessible contrast.
-<!-- release:end -->
 
 ## 0.2.0
 
