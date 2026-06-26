@@ -1,14 +1,14 @@
-import { requireAuthWhen } from "@emulators/core";
 import type { AppEnv, ServicePlugin, Store, WebhookDispatcher } from "@emulators/core";
+import { requireAuthWhen } from "@emulators/core";
 import type { Hono } from "hono";
 import { discoveryRoutes } from "./routes/discovery.js";
+import { inspectorRoutes } from "./routes/inspector.js";
 import { invitationRoutes } from "./routes/invitations.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { organizationRoutes } from "./routes/organizations.js";
 import { sessionRoutes } from "./routes/sessions.js";
 import { userRoutes } from "./routes/users.js";
 import { webhookRoutes } from "./routes/webhooks.js";
-import { inspectorRoutes } from "./routes/inspector.js";
 import { getWorkOSStore } from "./store.js";
 
 export type { WorkOSStoreFacade } from "./store.js";
@@ -118,7 +118,13 @@ export function storeToSeedConfig(store: Store, _baseUrl: string): WorkOSSeedCon
         const user = usersById.get(m.user_id);
         const org = orgsById.get(m.organization_id);
         if (!user || !org) return [];
-        return [{ user_email: user.email, organization_slug: org.slug, role: m.role.slug }];
+        return [
+          {
+            user_email: user.email,
+            organization_slug: org.slug,
+            role: m.role.slug,
+          },
+        ];
       }),
   };
 }
@@ -139,6 +145,10 @@ export const workosPlugin: ServicePlugin = {
     // stay open so a token can still be obtained; only the management
     // surface below is gated. Off by default so smoke tests/demos are green.
     app.use("/user_management/*", requireAuthWhen("EMULATE_WORKOS_REQUIRE_AUTH", "EMULATE_REQUIRE_AUTH"));
+    // The Organizations API lives at the top level (the SDK's
+    // `workos.organizations.*` methods hit `/organizations`, not user_management).
+    app.use("/organizations", requireAuthWhen("EMULATE_WORKOS_REQUIRE_AUTH", "EMULATE_REQUIRE_AUTH"));
+    app.use("/organizations/*", requireAuthWhen("EMULATE_WORKOS_REQUIRE_AUTH", "EMULATE_REQUIRE_AUTH"));
     userRoutes(app, ws, webhooks);
     organizationRoutes(app, ws, webhooks);
     sessionRoutes(app, ws);
