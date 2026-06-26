@@ -134,6 +134,26 @@ export function sessionRoutes(app: Hono<AppEnv>, baseUrl: string, ns: NangoStore
     });
   });
 
+  // GET /connect/session-info — resolve a session token to its provider/label
+  // without mutating the store. Used by the Connect-UI iframe (served at `/`)
+  // to render "Connect to {provider}" after it receives the token via
+  // postMessage (the token is not in the iframe URL).
+  app.get("/connect/session-info", (c) => {
+    const token = c.req.query("token") ?? "";
+    const session = sessionStore.get(token);
+    if (!session) {
+      return c.json({ error: "Session not found or expired" }, 404);
+    }
+    return c.json({
+      provider: session.provider,
+      providerLabel: providerLabel(session.provider),
+      integrationId: session.integrationId,
+      userId: session.userId,
+      orgId: session.orgId,
+      connectionId: session.connectionId ?? null,
+    });
+  });
+
   // GET /connect — interactive connect UI
   app.get("/connect", (c) => {
     const token = c.req.query("token") ?? "";
@@ -338,7 +358,16 @@ export function sessionRoutes(app: Hono<AppEnv>, baseUrl: string, ns: NangoStore
       ? `${session.siteUrl}/apps/${appId}?connected=true&connectionId=${connectionId}`
       : `/`;
 
-    return c.json({ ok: true, connectionId, redirectUrl });
+    // `integrationId`/`provider` let the Connect-UI iframe build the SDK's
+    // `{ type: "connect", payload: { providerConfigKey, connectionId } }`
+    // message. (`session` is still a live reference after the store delete.)
+    return c.json({
+      ok: true,
+      connectionId,
+      redirectUrl,
+      integrationId: session.integrationId,
+      provider: session.provider,
+    });
   });
 }
 
