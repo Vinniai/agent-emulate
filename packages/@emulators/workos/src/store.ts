@@ -131,6 +131,25 @@ export function getWorkOSStore(store: Store) {
     allOrgs(): WorkOSOrganization[] {
       return [...orgs.values()];
     },
+    updateOrganization(
+      id: string,
+      patch: Partial<Pick<WorkOSOrganization, "name" | "slug">>,
+    ): WorkOSOrganization | undefined {
+      const org = orgs.get(id);
+      if (!org) return undefined;
+      const next: WorkOSOrganization = {
+        ...org,
+        ...patch,
+        id: org.id,
+        created_at: org.created_at,
+        updated_at: now(),
+      };
+      orgs.set(id, next);
+      return next;
+    },
+    deleteOrganization(id: string): boolean {
+      return orgs.delete(id);
+    },
 
     // --- Memberships ---
     insertMembership(userId: string, organizationId: string, role = "member"): WorkOSMembership {
@@ -233,7 +252,12 @@ export function getWorkOSStore(store: Store) {
     // --- Refresh Tokens ---
     createRefreshToken(userId: string, sessionId: string, organizationId?: string): string {
       const token = `r_workos_${randomHex(32)}`;
-      refreshTokens.set(token, { token, user_id: userId, organization_id: organizationId, session_id: sessionId });
+      refreshTokens.set(token, {
+        token,
+        user_id: userId,
+        organization_id: organizationId,
+        session_id: sessionId,
+      });
       return token;
     },
     consumeRefreshToken(token: string): RefreshTokenEntry | null {

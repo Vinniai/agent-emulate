@@ -2,10 +2,11 @@
 // bare Hono app (no @emulators/nango, no proxy/connection layer). Each
 // `describe` is one red-green TDD feature: the WorkOS SDK's standard
 // User-Management CRUD surface that the emulator did not previously implement.
-import { describe, it, expect, beforeEach } from "vitest";
+
+import { createApiErrorHandler, createErrorHandler, Store, WebhookDispatcher } from "@emulators/core";
 import { Hono } from "hono";
-import { Store, WebhookDispatcher, createApiErrorHandler, createErrorHandler } from "@emulators/core";
-import { workosPlugin, seedFromConfig, storeToSeedConfig, getWorkOSStore } from "../index.js";
+import { beforeEach, describe, expect, it } from "vitest";
+import { getWorkOSStore, seedFromConfig, storeToSeedConfig, workosPlugin } from "../index.js";
 
 const base = "http://localhost:14010";
 
@@ -23,12 +24,30 @@ function createTestApp() {
       { id: "org_b", name: "Beta", slug: "beta" },
     ],
     users: [
-      { id: "user_1", email: "ann@agent-emulate.dev", first_name: "Ann", last_name: "Ng" },
-      { id: "user_2", email: "bob@agent-emulate.dev", first_name: "Bob", last_name: "Yi" },
+      {
+        id: "user_1",
+        email: "ann@agent-emulate.dev",
+        first_name: "Ann",
+        last_name: "Ng",
+      },
+      {
+        id: "user_2",
+        email: "bob@agent-emulate.dev",
+        first_name: "Bob",
+        last_name: "Yi",
+      },
     ],
     memberships: [
-      { user_email: "ann@agent-emulate.dev", organization_slug: "acme", role: "admin" },
-      { user_email: "bob@agent-emulate.dev", organization_slug: "beta", role: "member" },
+      {
+        user_email: "ann@agent-emulate.dev",
+        organization_slug: "acme",
+        role: "admin",
+      },
+      {
+        user_email: "bob@agent-emulate.dev",
+        organization_slug: "beta",
+        role: "member",
+      },
     ],
   });
   return { app, store };
@@ -44,7 +63,11 @@ describe("WorkOS direct REST — Feature 1: GET /user_management/users/:userId",
     const res = await app.request(`${base}/user_management/users/user_1`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ id: "user_1", email: "ann@agent-emulate.dev", object: "user" });
+    expect(body).toMatchObject({
+      id: "user_1",
+      email: "ann@agent-emulate.dev",
+      object: "user",
+    });
   });
 
   it("404s for an unknown user", async () => {
@@ -62,7 +85,10 @@ describe("WorkOS direct REST — Feature 2: GET /user_management/users (list + ?
   it("lists all users with list_metadata", async () => {
     const res = await app.request(`${base}/user_management/users`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: unknown[]; list_metadata: unknown };
+    const body = (await res.json()) as {
+      data: unknown[];
+      list_metadata: unknown;
+    };
     expect(body.data).toHaveLength(2);
     expect(body.list_metadata).toEqual({ after: null, before: null });
   });
@@ -89,7 +115,11 @@ describe("WorkOS direct REST — Feature 3: PUT /user_management/users/:userId",
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ id: "user_1", first_name: "Annette", last_name: "Nguyen" });
+    expect(body).toMatchObject({
+      id: "user_1",
+      first_name: "Annette",
+      last_name: "Nguyen",
+    });
   });
 
   it("404s for an unknown user", async () => {
@@ -109,7 +139,9 @@ describe("WorkOS direct REST — Feature 4: DELETE /user_management/users/:userI
   });
 
   it("deletes the user (204) then GET 404s", async () => {
-    const del = await app.request(`${base}/user_management/users/user_2`, { method: "DELETE" });
+    const del = await app.request(`${base}/user_management/users/user_2`, {
+      method: "DELETE",
+    });
     expect(del.status).toBe(204);
     const get = await app.request(`${base}/user_management/users/user_2`);
     expect(get.status).toBe(404);
@@ -126,7 +158,12 @@ describe("WorkOS direct REST — Feature 5: GET /user_management/organizations/:
     const res = await app.request(`${base}/user_management/organizations/org_a`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ id: "org_a", name: "Acme", slug: "acme", object: "organization" });
+    expect(body).toMatchObject({
+      id: "org_a",
+      name: "Acme",
+      slug: "acme",
+      object: "organization",
+    });
   });
 
   it("404s for an unknown organization", async () => {
@@ -164,7 +201,11 @@ describe("WorkOS direct REST — Feature 7: GET /user_management/organization_me
     const res = await app.request(`${base}/user_management/organization_memberships/${m.id}`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ id: m.id, user_id: "user_1", organization_id: "org_a" });
+    expect(body).toMatchObject({
+      id: m.id,
+      user_id: "user_1",
+      organization_id: "org_a",
+    });
   });
 
   it("404s for an unknown membership", async () => {
@@ -206,7 +247,11 @@ describe("WorkOS direct REST — Feature 9: GET /user_management/sessions/:sessi
     const res = await app.request(`${base}/user_management/sessions/${session.id}`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ id: session.id, user_id: "user_1", organization_id: "org_a" });
+    expect(body).toMatchObject({
+      id: session.id,
+      user_id: "user_1",
+      organization_id: "org_a",
+    });
 
     const missing = await app.request(`${base}/user_management/sessions/session_nope`);
     expect(missing.status).toBe(404);
@@ -235,5 +280,93 @@ describe("WorkOS direct REST — Feature 10: storeToSeedConfig round-trips", () 
     ).toEqual(["ann@agent-emulate.dev", "bob@agent-emulate.dev"]);
     const ann = ws.findUserByEmail("ann@agent-emulate.dev")!;
     expect(ws.getUserMemberships(ann.id)[0]?.role.slug).toBe("admin");
+  });
+});
+
+// The WorkOS Node SDK's `workos.organizations.*` methods target the TOP-LEVEL
+// `/organizations` path (not `/user_management/*`). This is the source-of-truth
+// surface; the `/user_management/organizations` routes are deprecated aliases.
+describe("WorkOS direct REST — Feature 11: top-level /organizations API", () => {
+  let app: Hono;
+  beforeEach(() => {
+    app = createTestApp().app;
+  });
+
+  it("lists organizations with an SDK-shaped envelope (object: list)", async () => {
+    const res = await app.request(`${base}/organizations`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      object: string;
+      data: Array<{ id: string; domains: unknown[]; metadata: unknown }>;
+    };
+    expect(body.object).toBe("list");
+    expect(body.data.map((o) => o.id).sort()).toEqual(["org_a", "org_b"]);
+    // The SDK's deserializeOrganization calls `domains.map(...)`, so every org
+    // must carry a domains array (and metadata) or callers throw.
+    expect(Array.isArray(body.data[0].domains)).toBe(true);
+    expect(body.data[0].metadata).toEqual({});
+  });
+
+  it("gets a single organization, 404s for an unknown id", async () => {
+    const res = await app.request(`${base}/organizations/org_a`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      object: "organization",
+      id: "org_a",
+      name: "Acme",
+      slug: "acme",
+      domains: [],
+    });
+
+    const missing = await app.request(`${base}/organizations/org_nope`);
+    expect(missing.status).toBe(404);
+  });
+
+  it("creates an organization (201) and rejects a missing name (422)", async () => {
+    const res = await app.request(`${base}/organizations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Gamma" }),
+    });
+    expect(res.status).toBe(201);
+    const created = (await res.json()) as { id: string; name: string };
+    expect(created.name).toBe("Gamma");
+
+    const get = await app.request(`${base}/organizations/${created.id}`);
+    expect(get.status).toBe(200);
+
+    const bad = await app.request(`${base}/organizations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(bad.status).toBe(422);
+  });
+
+  it("updates an organization name, 404s for an unknown id", async () => {
+    const res = await app.request(`${base}/organizations/org_a`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Acme Renamed" }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ id: "org_a", name: "Acme Renamed" });
+
+    const missing = await app.request(`${base}/organizations/org_nope`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Nope" }),
+    });
+    expect(missing.status).toBe(404);
+  });
+
+  it("deletes an organization (204) then GET 404s; unknown delete 404s", async () => {
+    const del = await app.request(`${base}/organizations/org_b`, { method: "DELETE" });
+    expect(del.status).toBe(204);
+    const get = await app.request(`${base}/organizations/org_b`);
+    expect(get.status).toBe(404);
+
+    const missing = await app.request(`${base}/organizations/org_nope`, { method: "DELETE" });
+    expect(missing.status).toBe(404);
   });
 });
