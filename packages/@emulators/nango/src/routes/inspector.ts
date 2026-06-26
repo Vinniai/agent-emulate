@@ -1,6 +1,7 @@
 import type { RouteContext } from "@emulators/core";
 import { escapeHtml, renderSettingsPage } from "@emulators/core";
 import { getNangoStore } from "../store.js";
+import { renderConnectUI } from "./connect-ui.js";
 
 const SERVICE_LABEL = "Nango";
 
@@ -30,6 +31,14 @@ export function inspectorRoutes(ctx: RouteContext): void {
   const ns = () => getNangoStore(store);
 
   app.get("/", (c) => {
+    // The Nango frontend SDK opens the Connect UI as an iframe at
+    // `<baseURL>/?apiURL=...`. Detect that embed (the SDK always appends
+    // `apiURL`) and serve the postMessage-handshake page instead of the
+    // data-viewer inspector. Plain inspector visits have no `apiURL`.
+    if (c.req.query("apiURL") !== undefined) {
+      return c.html(renderConnectUI());
+    }
+
     const selectedId = c.req.query("conn") ?? "";
     const n = ns();
     const connections = n.listConnections();
